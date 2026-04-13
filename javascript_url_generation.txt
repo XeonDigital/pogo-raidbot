@@ -1,0 +1,45 @@
+export const getRaidBaseURL = (params) => {
+  let defenderStats;
+  if (params.guessTier) {
+    defenderStats = `levels/${params.guessTier}`
+  } else {
+    defenderStats = `cp/${params.cp || "10000"}`
+  }
+  let attackerStats;
+  if ((params.attackerType === subTypes.POKEBOX || params.attackerType === subTypes.FRIEND) && params.userId) {
+    attackerStats = `attackers/users/${params.userId}`
+  } else {
+    attackerStats = `attackers/levels/${params.attackerLevel || "30"}`;
+  }
+  return `/raids/defenders/${params.pokemonId}/${defenderStats}/${attackerStats}/strategies/${params.attackStrategy}/${params.defenseStrategy}`
+};
+
+export const getRaidQueryParams = (params) => {
+  let isByLevel = !params.attackerType || params.attackerType === subTypes.LEVEL;
+  let dodge = params.dodgeStrategy ? `${params.dodgeStrategy}` : 'DODGE_100';
+  let sort = typeof params.sort === 'string' ? params.sort : 'OVERALL';
+  let weatherCondtion = typeof params.weatherCondition === 'string' ? params.weatherCondition : 'NO_WEATHER';
+  let aggregation = params.aggregation ? params.aggregation : 'AVERAGE';
+  let randomAssistants = isByLevel ? "-1" : params.randomAssistants;
+  let numMegas = isByLevel ? "0" : params.numMegas;
+  let includeLegendary = !!params.includeLegendary
+  let includeShadow = !!params.includeShadow
+  let includeMegas = !!params.includeMegas
+  let attackerTypes = params.attackerTypes && params.attackerTypes[0] !== 'POKEMON_TYPE_NONE'? params.attackerTypes.join('&attackerTypes='):['POKEMON_TYPE_ALL']
+  let extra = "";
+  if (params.friendLevel && params.friendLevel !== friendLevelTypes[0]) {
+    extra += `&friendLevel=${params.friendLevel}`;
+  }
+
+  if (isByLevel) {
+    return `sort=${sort}&weatherCondition=${weatherCondtion}&dodgeStrategy=${dodge}&aggregation=${aggregation}&includeLegendary=${includeLegendary}&includeShadow=${includeShadow}&includeMegas=${includeMegas}&attackerTypes=${attackerTypes}${extra}`;
+  } else {
+    return `sort=${sort}&weatherCondition=${weatherCondtion}&dodgeStrategy=${dodge}&aggregation=${aggregation}&includeMegas=${includeMegas}&randomAssistants=${randomAssistants}&numMegas=${numMegas}${extra}`;
+  }
+
+};
+
+export const getRaidURL = (params, userInfo) => {
+  let hash = userInfo && userInfo.user? "#raid-estimator":""
+  return `${getRaidBaseURL(params)}?${getRaidQueryParams(params)}${hash}`;
+};
