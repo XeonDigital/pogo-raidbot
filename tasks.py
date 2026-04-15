@@ -6,7 +6,6 @@ from os import enviorn
 from dotenv import load_dotenv
 
 import classes.database as database
-import important
 from handlers import startup_handler as SH
 
 async def startup_process(bot):

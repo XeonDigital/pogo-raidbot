@@ -1,11 +1,12 @@
 import asyncio
 import asyncpg
+import os
 from os import environ
 from dotenv import load_dotenv
 
 load_dotenv()
 
-RAIDS = """
+RAIDS = '''
 CREATE TABLE IF NOT EXISTS raids(
   message_id BIGINT PRIMARY KEY,
   time_registered TIMESTAMP NOT NULL,
@@ -14,15 +15,15 @@ CREATE TABLE IF NOT EXISTS raids(
   user_id BIGINT NOT NULL,
   time_to_remove TIMESTAMP NOT NULL
 );
-"""
+'''
 
-RAID_COUNTERS = """
+RAID_COUNTERS = '''
 CREATE TABLE IF NOT EXISTS guild_raid_counters(
   guild_id BIGINT PRIMARY KEY,
   raid_counter INT DEFAULT 0
 );
-"""
-RAID_LOBBY_USER_MAP = """
+'''
+RAID_LOBBY_USER_MAP = '''
 DROP TABLE IF EXISTS raid_lobby_user_map;
 CREATE TABLE IF NOT EXISTS raid_lobby_user_map (
   lobby_channel_id BIGINT PRIMARY KEY,
@@ -36,9 +37,9 @@ CREATE TABLE IF NOT EXISTS raid_lobby_user_map (
   applied_users INT NOT NULL,
   notified_users INT NOT NULL
 );
-"""
+'''
 
-TRAINER_DATA = """
+TRAINER_DATA = '''
 CREATE TABLE IF NOT EXISTS trainer_data(
   user_id BIGINT PRIMARY KEY,
   last_time_recalled TIMESTAMP NOT NULL,
@@ -49,9 +50,9 @@ CREATE TABLE IF NOT EXISTS trainer_data(
   persistence INT DEFAULT 0,
   raids_participated_in INT DEFAULT 0
 );
-"""
+'''
 
-RAID_APPLICATIONS = """
+RAID_APPLICATIONS = '''
 CREATE TABLE IF NOT EXISTS raid_application_user_map(
   user_id BIGINT PRIMARY KEY,
   raid_message_id BIGINT NOT NULL,
@@ -62,53 +63,62 @@ CREATE TABLE IF NOT EXISTS raid_application_user_map(
   checked_in BOOLEAN NOT NULL,
   activity_check_message_id BIGINT
 );
-"""
+'''
 
-RAID_LOBBY_CATEGORY = """
+RAID_LOBBY_CATEGORY = '''
 CREATE TABLE IF NOT EXISTS raid_lobby_category(
   guild_id BIGINT PRIMARY KEY,
   category_id BIGINT NOT NULL,
   log_channel_id BIGINT NOT NULL
 );
-"""
+'''
 
-REQUEST_CHANNELS = """
+REQUEST_CHANNELS = '''
 CREATE TABLE IF NOT EXISTS valid_requeset_channels(
   channel_id BIGINT PRIMARY KEY,
   guild_id BIGINT NOT NULL
 );
-"""
-RECENT_PARTICIPATION_TABLE = """
+'''
+RECENT_PARTICIPATION_TABLE = '''
 CREATE TABLE IF NOT EXISTS raid_participation_table(
   user_id BIGINT PRIMARY KEY,
   last_participation_time TIMESTAMP NOT NULL
 );
-"""
+'''
 
-REQUEST_TABLE = """
+REQUEST_TABLE = '''
 CREATE TABLE IF NOT EXISTS request_role_id_map(
   role_id BIGINT PRIMARY KEY,
   message_id BIGINT NOT NULL,
   guild_id BIGINT NOT NULL,
   role_name VARCHAR(20)
 );
-"""
+'''
 
-RAID_STICKIES = """
+RAID_STICKIES = '''
 CREATE TABLE IF NOT EXISTS raid_placeholder_stickies(
   channel_id BIGINT PRIMARY KEY,
   message_id BIGINT NOT NULL,
   guild_id BIGINT NOT NULL
 )
-"""
+'''
 async def main():
-  conn = await asyncpg.connect(database='pogo_raid_bot',
+  conn = await asyncpg.connect(database=os.getenv('DATABASE'),
                                port=5432,
-                               host='localhost',
-                               user='pi',
+                               host='192.168.0.145',
+                               user='xeondigital',
                                password=os.getenv('PASSWORD'))
-
-  #await conn.execute(friend_code_table_update)
+  await conn.execute(RAIDS)
+  await conn.execute(RAID_COUNTERS)
+  await conn.execute(RAID_LOBBY_USER_MAP)
+  await conn.execute(TRAINER_DATA)
+  await conn.execute(RAID_APPLICATIONS)
+  await conn.execute(RAID_LOBBY_CATEGORY)
+  await conn.execute(REQUEST_CHANNELS)
+  await conn.execute(RECENT_PARTICIPATION_TABLE)
+  await conn.execute(REQUEST_TABLE)
+  await conn.execute(RAID_STICKIES)
+  #await conn.execute(friend_code_table_update)D
   #await conn.execute(UPDATE_WEIGHT_COLUMN)
 
-asyncio.get_event_loop().run_until_complete(main())
+asyncio.run(main())

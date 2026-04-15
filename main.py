@@ -14,12 +14,13 @@ import classes.bot as bot
 #env libraries
 from os import environ
 from dotenv import load_dotenv
-import important
 #import raid_cog
 
-load_dotenv()
+
 #from . import handlers
 from tasks import *
+
+load_dotenv()
 
 DESCRIPTION = '''Pokemon Go Raid Bot'''
 

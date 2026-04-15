@@ -3,7 +3,6 @@ Database class containing wrappers for the asyncpg pool instance.
 """
 import asyncpg
 
-import important
 
 class Database():
     """
