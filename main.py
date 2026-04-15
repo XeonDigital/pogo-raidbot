@@ -63,11 +63,10 @@ if __name__ == "__main__":
     if not initialize_cogs():
         print("[!] An error occurred during cog initialization. Exiting.")
         sys.exit()
-
-    BOT.loop.create_task(startup_process(BOT))
-    BOT.loop.create_task(status_update_loop(BOT))
-    BOT.loop.create_task(applicant_loop(BOT))
-    BOT.loop.create_task(lobby_removal_loop(BOT))
+    #BOT.loop.create_task(startup_process(BOT))
+    #BOT.loop.create_task(status_update_loop(BOT))
+    #BOT.loop.create_task(applicant_loop(BOT))
+    #BOT.loop.create_task(lobby_removal_loop(BOT))
     if args.l:
         print("[!] Running bot live.")
         BOT.live=True

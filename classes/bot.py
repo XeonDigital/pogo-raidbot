@@ -6,6 +6,7 @@ import asyncio
 import discord
 from discord.ext import commands
 
+from tasks import *
 import classes.database as database
 import classes.pokedex as pokedex
 #from classes import database
@@ -28,6 +29,12 @@ class Bot(commands.Bot):
         self.raid_channel_cache = set()
         self.request_channel_cache = set()
         self.guild_raid_counters = {}
+
+    async def on_ready(self, ) -> None:
+        await self.loop.create_task(startup_process(self))
+        await self.loop.create_task(status_update_loop(self))
+        await self.loop.create_task(applicant_loop(self))
+        await self.loop.create_task(lobby_removal_loop(self))
 
     async def retrieve_channel(self, *args, **kwargs):
         """

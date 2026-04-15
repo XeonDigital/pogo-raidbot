@@ -2,11 +2,14 @@
 Contains async task entry task entry points.
 """
 import asyncpg
-from os import enviorn
+import os
+from os import environ
 from dotenv import load_dotenv
 
 import classes.database as database
 from handlers import startup_handler as SH
+from os import environ
+from dotenv import load_dotenv
 
 async def startup_process(bot):
     load_dotenv()
