@@ -54,6 +54,6 @@ class AdminCommands(commands.Cog):
         await asyncio.gather(RLH.handle_admin_close_lobby(ctx, self.__bot, channel_id),
                              self.__bot.delete_ignore_error(ctx.message))
 
-def setup(bot):
+async def setup(bot):
     """Default setup function for file"""
-    bot.add_cog(AdminCommands(bot))
+    await bot.add_cog(AdminCommands(bot))

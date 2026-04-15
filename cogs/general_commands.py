@@ -102,6 +102,6 @@ class GeneralCommands(commands.Cog):
         await asyncio.gather(self.__bot.send_ignore_error(ctx, " ", embed=embed),
                              self.__bot.delete_ignore_error(ctx.message))
 
-def setup(bot):
+async def setup(bot):
     """Default setup function for file"""
-    bot.add_cog(GeneralCommands(bot))
+    await bot.add_cog(GeneralCommands(bot))

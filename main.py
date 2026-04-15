@@ -32,6 +32,7 @@ CUSTOM_STATUS = ""
 intent = discord.Intents().default()
 intent.members = True
 intent.guilds = True
+intent.message_content = True
 
 GAME = discord.Game(CUSTOM_STATUS)
 BOT = bot.Bot(COMMAND_PREFIX, description=DESCRIPTION, activity=GAME, intents=intent)
@@ -40,7 +41,8 @@ BOT.pool = None
 BOT.categories_allowed = True
 BOT.live = False
 
-def initialize_cogs():
+@BOT.event
+async def on_ready():
     cog_list = []
     for root, _, files in os.walk("cogs"):
         for filename in files:
@@ -49,20 +51,16 @@ def initialize_cogs():
                 cog_list.append(filepath.split(".py")[0].replace(os.sep, "."))
     for cog in cog_list:
         try:
-            BOT.load_extension(cog)
+            await BOT.load_extension(cog)
         except Exception as error:
             print(f"[!] An error occurred while loading COG [{cog}]: [{error}]")
-            return False
-    return True
+            print("[!] An error occurred during cog initialization. Exiting.")
+            sys.exit()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("-l", action="store_true")
     args = parser.parse_args()
-
-    if not initialize_cogs():
-        print("[!] An error occurred during cog initialization. Exiting.")
-        sys.exit()
     #BOT.loop.create_task(startup_process(BOT))
     #BOT.loop.create_task(status_update_loop(BOT))
     #BOT.loop.create_task(applicant_loop(BOT))

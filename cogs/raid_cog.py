@@ -23,6 +23,6 @@ class RaidPost(commands.Cog):
         await asyncio.gather(RH.process_raid(ctx, self.__bot, tier, pokemon_name, weather, invite_slots),
                              self.__bot.delete_ignore_error(ctx.message))
 
-def setup(bot):
+async def setup(bot):
     """Default setup function for file"""
-    bot.add_cog(RaidPost(bot))
+    await bot.add_cog(RaidPost(bot))

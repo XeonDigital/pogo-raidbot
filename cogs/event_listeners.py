@@ -37,6 +37,6 @@ class Listeners(commands.Cog):
             print(f'[!] An exception occurred during message handling. [{error}]')
 
 
-def setup(bot):
+async def setup(bot):
     """Default setup function for file"""
-    bot.add_cog(Listeners(bot))
+    await bot.add_cog(Listeners(bot))
