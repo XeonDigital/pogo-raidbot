@@ -2,7 +2,9 @@
 Bot class that wraps discord client
 """
 import asyncio
-
+import os
+from os import environ
+import sys
 import discord
 from discord.ext import commands
 
@@ -35,6 +37,20 @@ class Bot(commands.Bot):
         await self.loop.create_task(status_update_loop(self))
         await self.loop.create_task(applicant_loop(self))
         await self.loop.create_task(lobby_removal_loop(self))
+        cog_list = []
+        for root, _, files in os.walk("cogs"):
+            for filename in files:
+                filepath = os.path.join(root, filename)
+                if filepath.endswith(".py"):
+                    cog_list.append(filepath.split(".py")[0].replace(os.sep, "."))
+        for cog in cog_list:
+            try:
+                await self.load_extension(cog)
+                printf('Loaded: {cog}')
+            except Exception as error:
+                print(f"[!] An error occurred while loading COG [{cog}]: [{error}]")
+                print("[!] An error occurred during cog initialization. Exiting.")
+                sys.exit()
 
     async def retrieve_channel(self, *args, **kwargs):
         """

@@ -6,6 +6,7 @@ from handlers import raid_handler as RH
 from handlers import raid_lobby_handler as RLH
 
 async def on_message_handle(message, bot):
+    print("test")
     if message.author.bot:
         return True
     # Handle this first because it's a logging function.

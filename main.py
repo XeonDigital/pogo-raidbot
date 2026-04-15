@@ -41,21 +41,12 @@ BOT.pool = None
 BOT.categories_allowed = True
 BOT.live = False
 
-@BOT.event
-async def on_ready():
-    cog_list = []
-    for root, _, files in os.walk("cogs"):
-        for filename in files:
-            filepath = os.path.join(root, filename)
-            if filepath.endswith(".py"):
-                cog_list.append(filepath.split(".py")[0].replace(os.sep, "."))
-    for cog in cog_list:
-        try:
-            await BOT.load_extension(cog)
-        except Exception as error:
-            print(f"[!] An error occurred while loading COG [{cog}]: [{error}]")
-            print("[!] An error occurred during cog initialization. Exiting.")
-            sys.exit()
+#@BOT.event
+#async def on_ready():
+#    await BOT.loop.create_task(startup_process(BOT))
+#    await BOT.loop.create_task(status_update_loop(BOT))
+#    await BOT.loop.create_task(applicant_loop(BOT))
+#    await BOT.loop.create_task(lobby_removal_loop(BOT))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")

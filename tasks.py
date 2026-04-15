@@ -5,6 +5,7 @@ import asyncpg
 import os
 from os import environ
 from dotenv import load_dotenv
+import sys
 
 import classes.database as database
 from handlers import startup_handler as SH
@@ -30,6 +31,20 @@ async def startup_process(bot):
 
     if bot.live:
         await SH.spin_up_message_deletions(bot)
+    cog_list = []
+    for root, _, files in os.walk("cogs"):
+        for filename in files:
+            filepath = os.path.join(root, filename)
+            if filepath.endswith(".py"):
+                cog_list.append(filepath.split(".py")[0].replace(os.sep, "."))
+    for cog in cog_list:
+        try:
+            await bot.load_extension(cog)
+            print(f'Loaded: {cog}')
+        except Exception as error:
+            print(f"[!] An error occurred while loading COG [{cog}]: [{error}]")
+            print("[!] An error occurred during cog initialization. Exiting.")
+            sys.exit()
 
 async def status_update_loop(bot):
     """Updates status continually every ten minutes."""
