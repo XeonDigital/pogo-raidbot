@@ -41,21 +41,10 @@ BOT.pool = None
 BOT.categories_allowed = True
 BOT.live = False
 
-#@BOT.event
-#async def on_ready():
-#    await BOT.loop.create_task(startup_process(BOT))
-#    await BOT.loop.create_task(status_update_loop(BOT))
-#    await BOT.loop.create_task(applicant_loop(BOT))
-#    await BOT.loop.create_task(lobby_removal_loop(BOT))
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("-l", action="store_true")
     args = parser.parse_args()
-    #BOT.loop.create_task(startup_process(BOT))
-    #BOT.loop.create_task(status_update_loop(BOT))
-    #BOT.loop.create_task(applicant_loop(BOT))
-    #BOT.loop.create_task(lobby_removal_loop(BOT))
     if args.l:
         print("[!] Running bot live.")
         BOT.live=True

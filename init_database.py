@@ -109,6 +109,8 @@ CREATE TABLE IF NOT EXISTS raid_placeholder_stickies(
   guild_id BIGINT NOT NULL
 )
 '''
+
+
 async def main():
   conn = await asyncpg.connect(database=os.getenv('DATABASE'),
                                port=os.getenv('PORT'),
@@ -116,6 +118,7 @@ async def main():
                                user=os.getenv('DB_USER'),
                                password=os.getenv('PASSWORD'))
   await conn.execute(RAIDS)
+  await conn.execute(RAID_CHANNELS)
   await conn.execute(RAID_COUNTERS)
   await conn.execute(RAID_LOBBY_USER_MAP)
   await conn.execute(TRAINER_DATA)
@@ -125,7 +128,7 @@ async def main():
   await conn.execute(RECENT_PARTICIPATION_TABLE)
   await conn.execute(REQUEST_TABLE)
   await conn.execute(RAID_STICKIES)
-  #await conn.execute(friend_code_table_update)D
+  #await conn.execute(friend_code_table_update)
   #await conn.execute(UPDATE_WEIGHT_COLUMN)
 
 asyncio.run(main())
