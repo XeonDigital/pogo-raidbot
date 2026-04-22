@@ -18,7 +18,7 @@ This is used to attempt to provide corrections for typos and suggest it back to 
 
 ## Use
 ### Bot Hosting
-To set up the bot to work in your discord server, set up a designated raid channel and run the command `register_raid_channel`.
+To set up the bot to work in your discord server, set up a designated raid channel and run the command `-register_raid_channel`.
 
 To register the request module, set up a designated request channel and run `register_request_channel`.
 

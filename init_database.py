@@ -73,8 +73,15 @@ CREATE TABLE IF NOT EXISTS raid_lobby_category(
 );
 '''
 
+RAID_CHANNELS = '''
+CREATE TABLE IF NOT EXISTS valid_raid_channels(
+  channel_id BIGINT PRIMARY KEY,
+  guild_id BIGINT NOT NULL
+);
+'''
+
 REQUEST_CHANNELS = '''
-CREATE TABLE IF NOT EXISTS valid_requeset_channels(
+CREATE TABLE IF NOT EXISTS valid_request_channels(
   channel_id BIGINT PRIMARY KEY,
   guild_id BIGINT NOT NULL
 );
@@ -104,9 +111,9 @@ CREATE TABLE IF NOT EXISTS raid_placeholder_stickies(
 '''
 async def main():
   conn = await asyncpg.connect(database=os.getenv('DATABASE'),
-                               port=5432,
-                               host='192.168.0.145',
-                               user='xeondigital',
+                               port=os.getenv('PORT'),
+                               host=os.getenv('HOST'),
+                               user=os.getenv('DB_USER'),
                                password=os.getenv('PASSWORD'))
   await conn.execute(RAIDS)
   await conn.execute(RAID_COUNTERS)
