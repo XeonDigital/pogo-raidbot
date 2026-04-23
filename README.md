@@ -9,11 +9,7 @@ Make sure you have installed these before proceding:
 ## Installation
 
 ### Dependencies
-<<<<<<< HEAD
 First create a new python enviornment by running (<ins>Replace the path to match the current folder</ins>)
-=======
-First create a new python enviornment by running (<ins>Replace the path to match the current folder**</ins>)
->>>>>>> 8086da3 (added addition info to setup the bot)
 
 ```
 python -m venv /path/to/folder/
@@ -46,27 +42,13 @@ After successfully activating the enviornment, install the required dependencies
 pip install -r requirements.txt
 ```
 ### Setup 
-<<<<<<< HEAD
-<<<<<<< HEAD
 
 Make sure you have created a discord application [here](https://discord.com/developers/applications)
 
-=======
->>>>>>> de748a4 (added some more info for dependencies)
-Copy the .env.example and rename it to .env and fill in the contents required to run the bot
-
-<<<<<<< HEAD
-After that you can now run the main.py file
-
-=======
-
-Make sure you have created a dsicord application [here](https://discord.com/developers/applications)
-
 Copy the .env.example and rename it to .env and fill in the contents required to run the bot
 
 After that you can now run the main.py file
 
->>>>>>> 541f6b9 (added a few more things to setup)
 ## Use
 ### Discord Server Setup
 ***All this is required to properly run the bot***
