@@ -43,6 +43,7 @@ pip install -r requirements.txt
 ```
 ### Setup 
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 Make sure you have created a discord application [here](https://discord.com/developers/applications)
 
@@ -52,6 +53,13 @@ Copy the .env.example and rename it to .env and fill in the contents required to
 
 After that you can now run the main.py file
 
+=======
+
+Make sure you have created a dsicord application [here](https://discord.com/developers/applications)
+
+Copy the .env.example and rename it to .env and fill in the contents required to run the bot
+
+>>>>>>> bccd0ac (added info to the setup section)
 ## Use
 ### Discord Server Setup
 ***All this is required to properly run the bot***
