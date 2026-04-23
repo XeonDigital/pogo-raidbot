@@ -47,7 +47,7 @@ Make sure you have created a discord application [here](https://discord.com/deve
 
 Copy the .env.example and rename it to .env and fill in the contents required to run the bot
 
-After that you can now run the main file
+After that you can now run the main.py file
 
 ## Use
 ### Bot Hosting
