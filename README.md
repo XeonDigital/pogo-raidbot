@@ -50,7 +50,7 @@ Copy the .env.example and rename it to .env and fill in the contents required to
 After that you can now run the main.py file
 
 ## Use
-### Bot Hosting
+### Discord Server Setup
 ***All this is required to properly run the bot***
 
 To set up the bot to work in your discord server, set up a designated raid channel and run the command `-register_raid_channel`.
