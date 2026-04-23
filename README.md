@@ -9,7 +9,11 @@ Make sure you have installed these before proceding:
 ## Installation
 
 ### Dependencies
+<<<<<<< HEAD
 First create a new python enviornment by running (<ins>Replace the path to match the current folder</ins>)
+=======
+First create a new python enviornment by running (<ins>Replace the path to match the current folder**</ins>)
+>>>>>>> 8086da3 (added addition info to setup the bot)
 
 ```
 python -m venv /path/to/folder/
