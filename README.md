@@ -47,6 +47,8 @@ Make sure you have created a discord application [here](https://discord.com/deve
 
 Copy the .env.example and rename it to .env and fill in the contents required to run the bot
 
+After adding the items
+
 ## Use
 ### Bot Hosting
 ***All this is required to properly run the bot***
