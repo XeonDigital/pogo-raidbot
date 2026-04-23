@@ -60,9 +60,7 @@ Make sure you have created a dsicord application [here](https://discord.com/deve
 
 Copy the .env.example and rename it to .env and fill in the contents required to run the bot
 
->>>>>>> bccd0ac (added info to the setup section)
-=======
-After adding the items
+After that you can now run the main file
 
 >>>>>>> 541f6b9 (added a few more things to setup)
 ## Use
