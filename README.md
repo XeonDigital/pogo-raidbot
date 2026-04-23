@@ -2,19 +2,27 @@
 This is yet another implementation of a raid hosting framework for use within the r/pokemongo discord. It can be hosted on a raspberry pi or any VPS.
 
 ## Requirements
+Make sure you have installed these before proceding:
+- Python 3
+- PostgreSQL
 
-### Python 3
-This bot runs on python3
+## Installation
 
-### discord.py module
+### Dependencies
+First create a new python enviornment by running 
 
-Installation instructions and documentation for the entire discord.py library can be found at https://pypi.org/project/discord.py/
+    ```
+    python -m venv /path/to/new/virtual/environment
+    ```
+    
+To install all of the required dependencies run `pip install -r requirements.txt`
 
-### Fuzzywuzzy module
+### Setup 
 
-```pip install fuzzywuzzy```
 
-This is used to attempt to provide corrections for typos and suggest it back to the hosting user in a DM.
+Copy the .env.example and rename it to .env and fill in the contents required to run the bot
+
+
 
 ## Use
 ### Bot Hosting
