@@ -19,12 +19,12 @@ To activate the enviornment run the following:
 
 Windows:
 
-On powershell
+For powershell
 ```
 source /path/to/folder/.venv/bin/activate.ps1
 ```
 
-On cmd
+For cmd
 
 ```
 source /path/to/folder/.venv/bin/activate.bat
@@ -32,19 +32,20 @@ source /path/to/folder/.venv/bin/activate.bat
 
 Linux:
 
-bash
+For bash
 ```
 source /path/to/folder/.venv/bin/activate
 ```
 
-To install all of the required dependencies run 
-
-`pip install -r requirements.txt`
-
+After successfully activating the enviornment, insall the required dependencies by running: 
+```
+pip install -r requirements.txt
+```
 ### Setup 
+
+Make sure you have created a dsicord application [here](https://discord.com/developers/applications)
+
 Copy the .env.example and rename it to .env and fill in the contents required to run the bot
-
-
 
 ## Use
 ### Bot Hosting
