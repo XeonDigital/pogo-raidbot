@@ -9,7 +9,7 @@ Make sure you have installed these before proceding:
 ## Installation
 
 ### Dependencies
-First create a new python enviornment by running (Replace the path to match the current folder)
+First create a new python enviornment by running (<ins>Replace the path to match the current folder**</ins>)
 
 ```
 python -m venv /path/to/folder/
@@ -17,7 +17,7 @@ python -m venv /path/to/folder/
 
 To activate the enviornment run the following:
 
-Windows:
+**Windows**:
 
 For powershell
 ```
@@ -30,32 +30,34 @@ For cmd
 source /path/to/folder/.venv/bin/activate.bat
 ```
 
-Linux:
+**Linux**:
 
 For bash
 ```
 source /path/to/folder/.venv/bin/activate
 ```
 
-After successfully activating the enviornment, insall the required dependencies by running: 
+After successfully activating the enviornment, install the required dependencies by running: 
 ```
 pip install -r requirements.txt
 ```
 ### Setup 
 
-Make sure you have created a dsicord application [here](https://discord.com/developers/applications)
+Make sure you have created a discord application [here](https://discord.com/developers/applications)
 
 Copy the .env.example and rename it to .env and fill in the contents required to run the bot
 
 ## Use
 ### Bot Hosting
+***All this is required to properly run the bot***
+
 To set up the bot to work in your discord server, set up a designated raid channel and run the command `-register_raid_channel`.
 
-To register the request module, set up a designated request channel and run `register_request_channel`.
+Then to register the request module, set up a designated request channel and run `register_request_channel`.
 
 The bot will automatically remove any posts that are not proper, ignoring users with moderator permissions, from the two channels above.
 
-To register a lobby category, open an empty channel in a category and run `register_raid_lobby_category`.
+Then to register a lobby category, open an empty channel in a category and run `register_raid_lobby_category`.
 
 If you want to use the management channel system, add a new channel to the above category and run the command `register_lobby_management_channel`.
 
