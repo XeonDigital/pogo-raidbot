@@ -61,7 +61,7 @@ The bot will automatically remove any posts that are not proper, ignoring users 
 
 Then to register a lobby category, open an empty channel in a category and run `register_raid_lobby_category`.
 
-If you want to use the management channel system, add a new channel to the above category and run the command `register_lobby_management_channel`.
+Finally to setup the management channel system, add a new channel to the above category and run the command `register_lobby_management_channel`.
 
 ### Posting a raid
 The hosting user would type the following in the preferred raid channel:
