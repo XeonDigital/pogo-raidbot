@@ -42,9 +42,12 @@ After successfully activating the enviornment, install the required dependencies
 pip install -r requirements.txt
 ```
 ### Setup 
+<<<<<<< HEAD
 
 Make sure you have created a discord application [here](https://discord.com/developers/applications)
 
+=======
+>>>>>>> de748a4 (added some more info for dependencies)
 Copy the .env.example and rename it to .env and fill in the contents required to run the bot
 
 After that you can now run the main.py file
