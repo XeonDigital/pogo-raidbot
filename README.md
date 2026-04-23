@@ -9,17 +9,39 @@ Make sure you have installed these before proceding:
 ## Installation
 
 ### Dependencies
-First create a new python enviornment by running 
+First create a new python enviornment by running (Replace the path to match the current folder)
 
-    ```
-    python -m venv /path/to/new/virtual/environment
-    ```
-    
-To install all of the required dependencies run `pip install -r requirements.txt`
+```
+python -m venv /path/to/folder/
+```
+
+To activate the enviornment run the following:
+
+Windows:
+
+On powershell
+```
+source /path/to/folder/.venv/bin/activate.ps1
+```
+
+On cmd
+
+```
+source /path/to/folder/.venv/bin/activate.bat
+```
+
+Linux:
+
+bash
+```
+source /path/to/folder/.venv/bin/activate
+```
+
+To install all of the required dependencies run 
+
+`pip install -r requirements.txt`
 
 ### Setup 
-
-
 Copy the .env.example and rename it to .env and fill in the contents required to run the bot
 
 
