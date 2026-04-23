@@ -9,7 +9,7 @@ Make sure you have installed these before proceding:
 ## Installation
 
 ### Dependencies
-First create a new python enviornment by running (<ins>Replace the path to match the current folder**</ins>)
+First create a new python enviornment by running (<ins>Replace the path to match the current folder</ins>)
 
 ```
 python -m venv /path/to/folder/
