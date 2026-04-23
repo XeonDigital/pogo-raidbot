@@ -32,7 +32,7 @@ class Bot(commands.Bot):
         self.request_channel_cache = set()
         self.guild_raid_counters = {}
 
-    async def on_ready(self, ) -> None:
+    async def on_ready(self) -> None:
         await self.loop.create_task(startup_process(self))
         await self.loop.create_task(status_update_loop(self))
         await self.loop.create_task(applicant_loop(self))

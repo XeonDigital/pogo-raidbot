@@ -11,6 +11,7 @@ import classes.database as database
 from handlers import startup_handler as SH
 from os import environ
 from dotenv import load_dotenv
+from init_database import initialize_database
 
 async def startup_process(bot):
     load_dotenv()
@@ -45,6 +46,7 @@ async def startup_process(bot):
             print(f"[!] An error occurred while loading COG [{cog}]: [{error}]")
             print("[!] An error occurred during cog initialization. Exiting.")
             sys.exit()
+    await initialize_database()
 
 async def status_update_loop(bot):
     """Updates status continually every ten minutes."""

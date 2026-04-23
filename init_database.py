@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS raid_placeholder_stickies(
 '''
 
 
-async def main():
+async def initialize_database():
   conn = await asyncpg.connect(database=os.getenv('DATABASE'),
                                port=os.getenv('PORT'),
                                host=os.getenv('HOST'),
@@ -130,5 +130,3 @@ async def main():
   await conn.execute(RAID_STICKIES)
   #await conn.execute(friend_code_table_update)
   #await conn.execute(UPDATE_WEIGHT_COLUMN)
-
-asyncio.run(main())
