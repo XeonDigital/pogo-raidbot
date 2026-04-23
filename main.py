@@ -25,7 +25,7 @@ load_dotenv()
 DESCRIPTION = '''Pokemon Go Raid Bot'''
 
 #Set command_prefix to any character here.
-COMMAND_PREFIX = '-'
+COMMAND_PREFIX = os.getenv('PREFIX')
 #Change this string to change the 'playing' status of the bot.
 CUSTOM_STATUS = ""
 
