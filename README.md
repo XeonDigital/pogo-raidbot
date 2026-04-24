@@ -53,7 +53,7 @@ After that you can now run the main.py file
 ### Discord Server Setup
 ***All this is required to properly run the bot***
 
-To set up the bot to work in your discord server, set up a designated raid channel and run the command `-register_raid_channel`.
+To set up the bot to work in your discord server, set up a designated raid channel and run the command `register_raid_channel` with your prefix.
 
 Then to register the request module, set up a designated request channel and run `register_request_channel`.
 
@@ -61,7 +61,7 @@ The bot will automatically remove any posts that are not proper, ignoring users 
 
 Then to register a lobby category, open an empty channel in a category and run `register_raid_lobby_category`.
 
-Finally to setup the management channel system, add a new channel to the above category and run the command `register_lobby_management_channel`.
+Finally to setup the management channel system, add a new channel to the above category and run the command `register_lobby_manager_channel`.
 
 ### Posting a raid
 The hosting user would type the following in the preferred raid channel:

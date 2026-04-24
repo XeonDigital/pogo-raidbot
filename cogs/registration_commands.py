@@ -40,7 +40,7 @@ class RegistrationCommands(commands.Cog):
     @commands.has_guild_permissions(manage_messages=True, manage_roles=True, manage_channels=True)
     async def register_lobby_manager_channel(self, ctx):
         """Mod Only - The channel this command is ran in will be set as a lobby management channel."""
-        await asyncio.gather(REGH.register_raid_lobby_manager_channel(ctx, self.__bot),
+        await asyncio.gather(REGH.register_lobby_manager_channel(ctx, self.__bot),
                              self.__bot.delete_ignore_error(ctx.message))
 
 async def setup(bot):
