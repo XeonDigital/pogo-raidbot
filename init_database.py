@@ -69,7 +69,9 @@ RAID_LOBBY_CATEGORY = '''
 CREATE TABLE IF NOT EXISTS raid_lobby_category(
   guild_id BIGINT PRIMARY KEY,
   category_id BIGINT NOT NULL,
-  log_channel_id BIGINT NOT NULL
+  log_channel_id BIGINT NOT NULL,
+  management_channel_id BIGINT,
+  management_message_id BIGINT
 );
 '''
 
