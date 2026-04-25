@@ -28,6 +28,7 @@ async def startup_process(bot):
     bot.database = database.Database(pool)
     await bot.wait_until_ready()
     #bot.pool = await init_pool()
+    await initialize_database()
     await SH.set_up_guild_raid_counters(bot)
 
     if bot.live:
@@ -46,7 +47,7 @@ async def startup_process(bot):
             print(f"[!] An error occurred while loading COG [{cog}]: [{error}]")
             print("[!] An error occurred during cog initialization. Exiting.")
             sys.exit()
-    await initialize_database()
+
 
 async def status_update_loop(bot):
     """Updates status continually every ten minutes."""
