@@ -53,7 +53,7 @@ After that you can now run the main.py file
 ### Discord Server Setup
 ***All this is required to properly run the bot***
 
-To set up the bot to work in your discord server, set up a designated raid channel and run the command `<prefix>register_raid_channel` with your prefix.
+To set up the bot to work in your discord server, set up a designated raid channel and run the command `<prefix>register_raid_channel`.
 
 Then to register the request module, set up a designated request channel and run `<prefix>register_request_channel`.
 

@@ -26,8 +26,6 @@ async def startup_process(bot):
                                      user=os.getenv('DB_USER'),
                                      password=os.getenv('PASSWORD'))
     bot.database = database.Database(pool)
-    await bot.wait_until_ready()
-    #bot.pool = await init_pool()
     await initialize_database()
     await SH.set_up_guild_raid_counters(bot)
 
