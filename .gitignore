@@ -209,3 +209,4 @@ __marimo__/
 lib64
 pyvenv.cfg
 .webcache/
+.vscode

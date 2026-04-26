@@ -92,6 +92,8 @@ class Pokedex():
             b"includeShadow":b"true",
             b"includeMegas":b"true",
             b"attackerTypes":b"POKEMON_TYPE_ALL",
+            b"primalAssistants":b"",
+            b"numParty":b"1"
         }
         result, url = API.retrieve_data_from_api(API.link_builder(name, tier, weather), params)
         result = result.get("attackers").pop().get("randomMove").get("defenders")[-1:-7:-1]
@@ -105,6 +107,7 @@ class Pokedex():
 
     def get_counter_for(self, bot, name, tier, weather):
         name_id = self.convert_name_to_id(name, tier)
+        tier = tier.upper()
         tier = tier.replace("T","")
         tier_id = f"RAID_LEVEL_{tier}".upper()
         weather_id = F.WEATHER_TO_POKEBATTLER.get(weather.lower())

@@ -184,7 +184,7 @@ async def set_trainer_level(ctx, bot, level):
             await bot.send_ignore_error(target, "", embed=embed, delete_after=15)
             return
             
-        if level < 1 or level > 50:
+        if level < 1 or level > 80:
             embed = discord.Embed(title="Error", description="The given level is invalid. It must be between 1 and 50.")
             await bot.send_ignore_error(target, "", embed=embed, delete_after=15)
             return
