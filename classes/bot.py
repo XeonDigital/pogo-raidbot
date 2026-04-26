@@ -25,6 +25,7 @@ class Bot(commands.Bot):
 
         self.applicant_trigger = asyncio.Event()
         self.lobby_remove_trigger = asyncio.Event()
+        self._startup_complete = False
 
         self.database = None
         self.dex = pokedex.Pokedex()
@@ -33,24 +34,16 @@ class Bot(commands.Bot):
         self.guild_raid_counters = {}
 
     async def on_ready(self) -> None:
-        await self.loop.create_task(startup_process(self))
-        await self.loop.create_task(status_update_loop(self))
-        await self.loop.create_task(applicant_loop(self))
-        await self.loop.create_task(lobby_removal_loop(self))
-        cog_list = []
-        for root, _, files in os.walk("cogs"):
-            for filename in files:
-                filepath = os.path.join(root, filename)
-                if filepath.endswith(".py"):
-                    cog_list.append(filepath.split(".py")[0].replace(os.sep, "."))
-        for cog in cog_list:
-            try:
-                await self.load_extension(cog)
-                printf('Loaded: {cog}')
-            except Exception as error:
-                print(f"[!] An error occurred while loading COG [{cog}]: [{error}]")
-                print("[!] An error occurred during cog initialization. Exiting.")
-                sys.exit()
+        # discord.py may call on_ready more than once (e.g. reconnect/resume).
+        # Ensure we only spawn background tasks once.
+        if self._startup_complete:
+            return
+        self._startup_complete = True
+
+        self.loop.create_task(startup_process(self))
+        self.loop.create_task(status_update_loop(self))
+        self.loop.create_task(applicant_loop(self))
+        self.loop.create_task(lobby_removal_loop(self))
 
     async def retrieve_channel(self, *args, **kwargs):
         """
