@@ -37,7 +37,10 @@ valid_tiers = [
     "RAID_LEVEL_4_5",
     "RAID_LEVEL_5",
     "RAID_LEVEL_6",
-    "RAID_LEVEL_MEGA"
+    "RAID_LEVEL_MEGA",
+    "RAID_LEVEL_1_SHADOW",
+    "RAID_LEVEL_3_SHADOW",
+    "RAID_LEVEL_5_SHADOW",
 ]
 def current_tier_valid(tier):
     return tier in valid_tiers
@@ -54,6 +57,20 @@ def filter_current_raids(raids):
 
 def fetch_raids_filtered():
     return filter_current_raids(fetch_raids())
+
+def summarize_raids(raw_raids):
+    """
+    Build a compact summary of the /raids payload.
+    Returns: list[tuple[str, int]] of (tier_id, raid_count) sorted by tier_id.
+    """
+    tiers = raw_raids.get("tiers") or []
+    summary = []
+    for tier in tiers:
+        tier_id = tier.get("tier")
+        raids = tier.get("raids") or []
+        summary.append((tier_id, len(raids)))
+    summary.sort(key=lambda x: (x[0] or ""))
+    return summary
 
 def link_builder(name, tier, weather):
     return f"https://fight.pokebattler.com/raids/defenders/{name}/levels/{tier}/attackers/levels/40/strategies/CINEMATIC_ATTACK_WHEN_POSSIBLE/DEFENSE_RANDOM_MC"

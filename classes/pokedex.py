@@ -10,6 +10,7 @@ from data import formats as F
 from data import pokemon as DEX
 from handlers.pokebattler import api_helper as AH
 from handlers.pokebattler import pokebattler_api as API
+from pogo_raid_lib import normalize_shadow_pokemon_name_for_lookup
 
 class Pokedex():
     def __init__(self):
@@ -31,8 +32,49 @@ class Pokedex():
         self.rankings = API.fetch_rankings()
 
     def current_raid_bosses(self):
-        current_raids = AH.get_raid_bosses()
-        return current_raids
+        """
+        Names accepted by raid/request commands for "currently in rotation".
+
+        - Non-shadow bosses: includes "Boss"
+        - Shadow bosses: includes both "Shadow Boss" and "Boss" (so users can type either)
+        """
+        accepted = set()
+        raids = self.raids or {}
+        for boss_name, raid_data in raids.items():
+            canonical = (boss_name or "").strip()
+            if not canonical:
+                continue
+
+            display = canonical.title()
+            accepted.add(display)
+
+            tier = (raid_data or {}).get("tier") or ""
+            if isinstance(tier, str) and tier.endswith("_SHADOW"):
+                accepted.add(f"Shadow {display}")
+
+        return sorted(accepted)
+
+    @staticmethod
+    def normalize_raid_boss_name(name: str) -> str:
+        """
+        Normalize user input / formatted names for rotation membership checks.
+        Delegates to ``normalize_shadow_pokemon_name_for_lookup`` then Title-cases for comparison.
+        """
+        normalized_name = normalize_shadow_pokemon_name_for_lookup(name)
+        if not normalized_name:
+            return ""
+        return normalized_name.title()
+
+    def is_current_raid_boss(self, name: str) -> bool:
+        """
+        True if the user-provided boss name matches current rotation.
+        Shadow raids accept any spelling that contains ``shadow``; see ``normalize_shadow_pokemon_name_for_lookup``.
+        """
+        normalized_name = self.normalize_raid_boss_name(name)
+        if not normalized_name:
+            return False
+        accepted = {self.normalize_raid_boss_name(n) for n in self.current_raid_bosses()}
+        return normalized_name in accepted
 
     def calculate_players_power_percent(self, player_level, boss_name):
         raid_data = self.raids.get(boss_name)
