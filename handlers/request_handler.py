@@ -103,7 +103,7 @@ async def set_up_request_role_and_message(bot, interaction: discord.Interaction,
         new_role = await guild.create_role(name=pokemon_name, reason="Setting up a request role.")
     except discord.DiscordException as error:
         print("[!] An error occurred creating a new role: [{}]".format(error))
-    author = interaction.author
+    author = interaction.user
     try:
         await give_request_role(author, guild, new_role)
     except discord.DiscordException as error:
@@ -278,7 +278,7 @@ async def check_if_user_already_assigned_role(member, role_id):
 
 async def request_pokemon_handle(bot, interaction: discord.Interaction, tier, pokemon_name):
     """Sets up a request and gives you a role for that Pokemon"""
-    author = interaction.author
+    author = interaction.user
     if not tier or (tier.lower() == "mega" and not pokemon_name):
         await author.send(format_request_failed_dm(interaction.guild.name, "No pokemon given to request."))
         return
@@ -301,14 +301,14 @@ async def request_pokemon_handle(bot, interaction: discord.Interaction, tier, po
         except discord.Forbidden:
             return
         correction_suggestion = interaction.prefix + "request " + suggestion
-        await interaction.author.send(correction_suggestion)
+        await interaction.user.send(correction_suggestion)
     else:
         pokemon_name = pokemon_name.title()
         temp = pokemon_name.replace("-Altered", "")
         temp = temp.replace("-Origin","")
         if not bot.dex.is_current_raid_boss(temp):
             embed = discord.Embed(title="Error", description=f"That pokemon ({pokemon_name}) is not currently in rotation. If you believe this is an error, please contact TheStaplergun#6920.")
-            await bot.send_ignore_error(interaction.author, " ", embed=embed)
+            await bot.send_ignore_error(interaction.user, " ", embed=embed)
             return
         does_exist, request_channel_id, message_id, role_id = await check_if_request_message_exists(bot, pokemon_name, guild_id)
         if not does_exist:
@@ -322,7 +322,7 @@ async def request_pokemon_handle(bot, interaction: discord.Interaction, tier, po
     return
 
 async def remove_request_pokemon_handle(bot, interaction: discord.Interaction, tier, pokemon_name):
-    author = interaction.author
+    author = interaction.user
     if tier.lower() == "mega" and not pokemon_name.startswith("Mega", 0, 5):
         pokemon_name = "Mega " + pokemon_name
     if not discord.utils.get(author.roles, name=pokemon_name):
@@ -336,39 +336,50 @@ async def remove_request_pokemon_handle(bot, interaction: discord.Interaction, t
         print("[!][{}] An error occurred removing a role from a user. [{}]".format(interaction.guild.name, error))
     await decrement_request_count(interaction, bot, request_channel_id, message_id)
 
+class MockContext:
+    def __init__(self, guild, channel, user):
+        self.guild = guild
+        self.channel = channel
+        self.user = user
 
-async def add_request_role_to_user(bot, interaction: discord.Interaction, message):
+# kept as ctx because it handles emoji reactions which the new discord.Interactions cant do
+async def add_request_role_to_user(bot, ctx, message):
     is_mega, pokemon_name = H.get_pokemon_name_from_raid(message)
 
-    interaction.guild = bot.get_guild(interaction.guild_id)
-    interaction.channel = interaction.guild.get_channel(interaction.channel_id)
-    interaction.author = interaction.guild.get_member(interaction.user_id)
-    if not interaction.author:
+    guild = bot.get_guild(ctx.guild_id)
+    channel = guild.get_channel(ctx.channel_id)
+    user = guild.get_member(ctx.user_id)
+
+    if not user:
         try:
-            interaction.author = interaction.guild.fetch_member(interaction.user_id)
+            user = await guild.fetch_member(ctx.user_id)
         except discord.DiscordException as error:
-            print("[!] An error occurred fetching a member from the guild [{}]".format(interaction.guild))
+            print("[!] An error occurred fetching a member from the guild [{}]".format(guild))
 
     tier = pokemon_name
     if is_mega:
         tier = "Mega"
 
-    await request_pokemon_handle(bot, interaction, tier, pokemon_name)
+    mock_interaction = MockContext(guild, channel, user)
+    await request_pokemon_handle(bot, mock_interaction, tier, pokemon_name)
 
-async def remove_request_role_from_user(bot, interaction: discord.Interaction, message):
+# kept as ctx because it handles emoji reactions which the new discord.Interactions cant do
+async def remove_request_role_from_user(bot, ctx, message):
     is_mega, pokemon_name = H.get_pokemon_name_from_raid(message)
 
-    interaction.guild = bot.get_guild(interaction.guild_id)
-    interaction.channel = interaction.guild.get_channel(interaction.channel_id)
-    interaction.author = interaction.guild.get_member(interaction.user_id)
-    if not interaction.author:
+    guild = bot.get_guild(ctx.guild_id)
+    channel = guild.get_channel(ctx.channel_id)
+    user = guild.get_member(ctx.user_id)
+
+    if not user:
         try:
-            interaction.author = interaction.guild.fetch_member(interaction.user_id)
+            user = await guild.fetch_member(ctx.user_id)
         except discord.DiscordException as error:
-            print("[!] An error occurred fetching a member from the guild [{}]".format(interaction.guild))
+            print("[!] An error occurred fetching a member from the guild [{}]".format(guild))
 
     tier = pokemon_name
     if is_mega:
         tier = "Mega"
 
-    await remove_request_pokemon_handle(bot, interaction, tier, pokemon_name)
+    mock_interaction = MockContext(guild, channel, user)
+    await remove_request_pokemon_handle(bot, mock_interaction, tier, pokemon_name)
