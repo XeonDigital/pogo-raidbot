@@ -1,8 +1,6 @@
 import discord
 
 import data.formats as F
-from handlers.raid_handler import check_if_valid_raid_channel
-from handlers.request_handler import check_if_valid_request_channel
 from pogo_raid_lib import *
 
 tab_count = -1
@@ -107,19 +105,9 @@ def format_pokemon_name(name):
     return name
 
 
-async def get_counter(bot, ctx, tier, name, weather):
-    author = ctx.author
-    message = ctx.message
-    raid_channel = await check_if_valid_raid_channel(bot, message.channel.id)
-    request_channel = await check_if_valid_request_channel(bot, message.channel.id)
-
-    if raid_channel or request_channel:
-        target = author
-    else:
-        target = ctx
-
+async def get_counter(bot, interaction: discord.Interaction, tier, name, weather):
     if not tier or (tier.lower() == "mega" and not name):
-        await target.send("No pokemon given to get counters for.", delete_after=None if target == author else 15)
+        await interaction.followup.send("No pokemon given to get counters for.", ephemeral=True)
         return
 
     valid_data = True
@@ -140,14 +128,14 @@ async def get_counter(bot, ctx, tier, name, weather):
         message_to_send = f"{message_to_send}{response}Did you mean **{suggestion}**"
 
     if not valid_data:
-        await target.send(message_to_send)
+        await interaction.followup.send(message_to_send, ephemeral=True)
         return
 
     embed = bot.dex.get_counter_for(bot, name, tier, weather)
     embed_thumbnail = build_image_link_github(dex_num)
     embed.set_thumbnail(url=embed_thumbnail)
     try:
-        await target.send(embed=embed)
+        await interaction.followup.send(embed=embed, ephemeral=True)
     except discord.DiscordException:
         pass
 
