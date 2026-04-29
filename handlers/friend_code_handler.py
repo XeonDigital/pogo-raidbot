@@ -105,39 +105,28 @@ async def get_args_list_from_message(message):
     args.pop(0) #Pop the command out of the list
     return args
 
-async def set_friend_code(interaction: discord.Interaction, bot):
+async def set_friend_code(interaction: discord.Interaction, bot, fc: str):
     author = interaction.user
-    raid_channel = await RH.check_if_valid_raid_channel(bot, interaction.channelid)
-    request_channel = await REQH.check_if_valid_request_channel(bot, interaction.channel.id)
+    
+    # pass the fc variable directly to validate_fc
+    # no need for unnecessary checks
+    valid_fc = validate_fc([fc]) 
+    
+    if not valid_fc:
+        new_embed = discord.Embed(title="Error", description="Invalid friend code. Valid friend code format is `1234 5678 9012` with or without spaces.")
+        await interaction.followup.send(embed=new_embed, ephemeral=True)
+        return
 
-    if raid_channel or request_channel:
-        target = author
-    else:
-        target = interaction
+    result = await add_friend_code_to_table(bot, author.id, valid_fc)
+    
+    if result == INSERTED:
+        new_embed = discord.Embed(title="Notification", description="A new record has been created with your information. Recall it with `/trainer`.")
+    elif result == NO_UPDATE:
+        new_embed = discord.Embed(title="Notification", description="That Friend Code matches the one in the database. No changes have been made.")
+    elif result == UPDATED:
+        new_embed = discord.Embed(title="Notification", description="Your Friend Code has been updated.")
 
-    async with interaction.channel.typing():
-        content = await get_args_list_from_message(interaction.message)
-        fc = validate_fc(content)
-        if not fc:
-            new_embed = discord.Embed(title="Error", description="Invalid friend code. Valid friend code format is `1234 5678 9012` with or without spaces.")
-            try:
-                await target.send(embed=new_embed, delete_after=15)
-            except discord.DiscordException:
-                pass
-            return
-
-        result = await add_friend_code_to_table(bot, author.id, fc)
-        if result == INSERTED:
-            new_embed = discord.Embed(title="Notification", description="A new record has been created with your information. Recall it with `-trainer` or `-t`.")
-        elif result == NO_UPDATE:
-            new_embed = discord.Embed(title="Notification", description="That Friend Code matches the one in the database. No changes have been made.")
-        elif result == UPDATED:
-            new_embed = discord.Embed(title="Notification", description="Your Friend Code has been updated.")
-
-        try:
-            await target.send(embed=new_embed, delete_after=15)
-        except discord.DiscordException:
-            pass
+    await interaction.followup.send(embed=new_embed, ephemeral=True)
 
 NEW_LEVEL_INSERT = """
 INSERT INTO trainer_data(user_id, level, last_time_recalled)
@@ -168,40 +157,29 @@ async def add_trainer_level_to_table(bot, user_id, level):
 
 async def set_trainer_level(interaction: discord.Interaction, bot, level):
     author = interaction.user
-    raid_channel = await RH.check_if_valid_raid_channel(bot, interaction.channel.id)
-    request_channel = await REQH.check_if_valid_request_channel(bot, interaction.channel.id)
-
-    if raid_channel or request_channel:
-        target = author
-    else:
-        target = interaction
     
-    async with interaction.channel.typing():
-        try:
-            level = int(level)
-        except ValueError:
-            embed = discord.Embed(title="Error", description="The given level is invalid. It must be between 1 and 50.")
-            await interaction.followup.send(embed=embed, ephemeral=True)
-            return
-            
-        if level < 1 or level > 80:
-            embed = discord.Embed(title="Error", description="The given level is invalid. It must be between 1 and 50.")
-            await interaction.followup.send(embed=embed, ephemeral=True)
-            return
-
-        result = await add_trainer_level_to_table(bot, author.id, level)
-
-        if result == INSERTED:
-            new_embed = discord.Embed(title="Notification", description="A new record has been created with your information. Recall it with `-trainer` or `-t`.")
-        elif result == NO_UPDATE:
-            new_embed = discord.Embed(title="Notification", description="That level matches the one in the database. No changes have been made.")
-        elif result == UPDATED:
-            new_embed = discord.Embed(title="Notification", description="Your Trainer Level has been updated.")
+    try:
+        level = int(level)
+    except ValueError:
+        embed = discord.Embed(title="Error", description="The given level is invalid. It must be between 1 and 50.")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
         
-        try:
-            await target.send(embed=new_embed, delete_after=15)
-        except discord.DiscordException:
-            pass
+    if level < 1 or level > 80:
+        embed = discord.Embed(title="Error", description="The given level is invalid. It must be between 1 and 50.")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
+
+    result = await add_trainer_level_to_table(bot, author.id, level)
+
+    if result == INSERTED:
+        new_embed = discord.Embed(title="Notification", description="A new record has been created with your information. Recall it with `/trainer`.")
+    elif result == NO_UPDATE:
+        new_embed = discord.Embed(title="Notification", description="That level matches the one in the database. No changes have been made.")
+    elif result == UPDATED:
+        new_embed = discord.Embed(title="Notification", description="Your Trainer Level has been updated.")
+    
+    await interaction.followup.send(embed=new_embed, ephemeral=True)
 
 NEW_NAME_INSERT = """
 INSERT INTO trainer_data(user_id, name, last_time_recalled)
@@ -237,49 +215,29 @@ SPECIAL_CHARACTERS = "!@#$%^&*()[]{};:,./<>?\|`~-=_+\"\'"
 
 async def set_trainer_name(interaction: discord.Interaction, bot, name):
     author = interaction.user
-    raid_channel = await RH.check_if_valid_raid_channel(bot, interaction.channel.id)
-    request_channel = await REQH.check_if_valid_request_channel(bot, interaction.channel.id)
 
-    if raid_channel or request_channel:
-        target = author
-    else:
-        target = interaction
+    if any(c in SPECIAL_CHARACTERS for c in name):
+        new_embed = discord.Embed(title="Error", description="A name cannot contain any special characters.")
+        await interaction.followup.send(embed=new_embed, ephemeral=True)
+        return
+
+    if len(name) < 4 or len(name) > 15:
+        new_embed = discord.Embed(title="Error", description="The length of that name is invalid. It must be between 4 and 15 characters.")
+        await interaction.followup.send(embed=new_embed, ephemeral=True)
+        return
     
-    async with interaction.channel.typing():
-        if any(c in SPECIAL_CHARACTERS for c in name):
-            new_embed = discord.Embed(title="Error", description="A name cannot contain any special characters.")
-            try:
-                await target.send(embed=new_embed, delete_after=15)
-            except discord.DiscordException:
-                pass
-            return
+    result = await add_trainer_name_to_table(bot, author.id, name)
 
-        if len(name) < 4 or len(name) > 15:
-            new_embed = discord.Embed(title="Error", description="The length of that name is invalid. It must be between 4 and 15 characters.")
-            try:
-                await target.send(embed=new_embed, delete_after=15)
-            except discord.DiscordException:
-                pass
-            return
-        
-
-        result = await add_trainer_name_to_table(bot, author.id, name)
-
-        if result == INSERTED:
-            new_embed = discord.Embed(title="Notification", description="A new record has been created with your information. Recall it with `-trainer` or `-t`.")
-        elif result == NO_UPDATE:
-            new_embed = discord.Embed(title="Notification", description="That name matches the one in the database. No changes have been made.")
-        elif result == UPDATED:
-            new_embed = discord.Embed(title="Notification", description="Your Trainer Name has been updated.")
-        
-        try:
-            await target.send(embed=new_embed, delete_after=15)
-        except discord.DiscordException:
-            pass
+    if result == INSERTED:
+        new_embed = discord.Embed(title="Notification", description="A new record has been created with your information. Recall it with `/trainer`.")
+    elif result == NO_UPDATE:
+        new_embed = discord.Embed(title="Notification", description="That name matches the one in the database. No changes have been made.")
+    elif result == UPDATED:
+        new_embed = discord.Embed(title="Notification", description="Your Trainer Name has been updated.")
+    
+    await interaction.followup.send(embed=new_embed, ephemeral=True)
 
 async def send_trainer_information(interaction: discord.Interaction, bot, user_id):
-    author = interaction.user
-    print(user_id)
     if user_id == "0":
         user_id = interaction.user.id
     else:
@@ -290,13 +248,7 @@ async def send_trainer_information(interaction: discord.Interaction, bot, user_i
             await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
-    raid_channel = await RH.check_if_valid_raid_channel(bot, interaction.channel.id)
-    request_channel = await REQH.check_if_valid_request_channel(bot, interaction.channel.id)
-
-    if raid_channel or request_channel:
-        new_embed = discord.Embed(title="Error", description="This command cannot be used here.")
-        await bot.send_ignore_error(author, "", embed=new_embed)
-        return
+    # there's no need to do checks since everything is ephemeral so no clutter
 
     result = await bot.database.fetchrow(GET_TRAINER_DATA_BY_USER_ID,
                                          int(user_id))
@@ -313,9 +265,9 @@ async def send_trainer_information(interaction: discord.Interaction, bot, user_i
         fc = result.get("friend_code")
         rh = result.get("raids_hosted")
         rp = result.get("raids_participated_in")
-        new_embed.add_field(name="Name", value=name if name else "To set your trainer name, use `-sn ANameOrSomething` or `-setname ANameOrSomething`.", inline=False)
-        new_embed.add_field(name="Level", value=level if level else "To set your trainer level, use `-sl 39` or `-setlevel 39`.", inline=False)
-        new_embed.add_field(name="Friend Code", value=fc if fc else "To set your trainer friend code, use `-sf` or `-setfc`.", inline=False)
+        new_embed.add_field(name="Name", value=name if name else "To set your trainer name, use `/setname ANameOrSomething`.", inline=False)
+        new_embed.add_field(name="Level", value=level if level else "To set your trainer level, use `/setlevel 39`.", inline=False)
+        new_embed.add_field(name="Friend Code", value=fc if fc else "To set your trainer friend code, use `/setfc`.", inline=False)
         new_embed.add_field(name="Raids Hosted", value=rh, inline=True)
         new_embed.add_field(name="Raids Participated In", value=rp, inline=True)
     else:
