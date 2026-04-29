@@ -8,7 +8,6 @@ import handlers.friend_code_handler as FCH
 import handlers.helpers as H
 import handlers.raid_handler as RH
 import handlers.raid_lobby_management as RLM
-from handlers.raid_handler import increment_raid_counter
 
 async def create_raid_host_role(guild):
     try:
@@ -142,8 +141,8 @@ async def add_lobby_to_table(bot, lobby_channel_id, host_user_id, raid_id, guild
                                0,
                                0)
 
-async def create_raid_lobby(ctx, bot, raid_message_id, raid_host_member, time_to_remove_lobby, invite_slots) -> discord.TextChannel:
-    guild = ctx.guild
+async def create_raid_lobby(interaction: discord.Interaction, bot, raid_message_id, raid_host_member, time_to_remove_lobby, invite_slots) -> discord.TextChannel:
+    guild = interaction.guild
     raid_lobby_category_channel_data = await get_raid_lobby_category_by_guild_id(bot, guild.id)
     if not raid_lobby_category_channel_data:
         return False
@@ -177,18 +176,18 @@ async def create_raid_lobby(ctx, bot, raid_message_id, raid_host_member, time_to
 
     reason = "Spawning new raid lobby for [{}]".format(raid_host_member.name)
     try:
-        new_raid_lobby = await raid_lobby_category_channel.create_text_channel("raid-lobby-{}".format(await RH.get_raid_count(bot, ctx, False)), reason=reason, overwrites=overwrites)
+        new_raid_lobby = await raid_lobby_category_channel.create_text_channel("raid-lobby-{}".format(await RH.get_raid_count(bot, interaction, False)), reason=reason, overwrites=overwrites)
         #await increment_raid_counter(ctx, bot, ctx.guild.id)
     except discord.DiscordException as error:
         try:
-            await ctx.send("Something went wrong when trying to create your raid lobby: [{}]".format(error), delete_after=15)
+            await interaction.followup.send("Something went wrong when trying to create your raid lobby: [{}]".format(error), ephemeral=True)
         except discord.DiscordException:
             pass
         print("[!] An error occurred creating a raid lobby. [{}]".format(error))
         return False
     except AttributeError as error:
         try:
-            await ctx.send("Something went wrong when trying to create your raid lobby: [{}]".format(error), delete_after=15)
+            await interaction.followup.send("Something went wrong when trying to create your raid lobby: [{}]".format(error), ephemeral=True)
         except discord.DiscordException:
             pass
         print("[!] An error occurred creating a raid lobby. [{}]".format(error))
@@ -213,7 +212,7 @@ async def create_raid_lobby(ctx, bot, raid_message_id, raid_host_member, time_to
     except discord.DiscordException:
         pass
     try:
-        await add_lobby_to_table(bot, new_raid_lobby.id, raid_host_member.id, raid_message_id, ctx.guild.id, time_to_remove_lobby, invite_slots)
+        await add_lobby_to_table(bot, new_raid_lobby.id, raid_host_member.id, raid_message_id, interaction.guild.id, time_to_remove_lobby, invite_slots)
     except asyncpg.PostgresError as error:
         print("[!] An error occurred adding a lobby to the database. [{}]".format(error))
         await new_raid_lobby.delete()
@@ -321,10 +320,10 @@ async def remove_application_for_user(bot, member, raid_id):
         pass
 
 
-async def handle_manual_clear_application(ctx, user_id, bot):
+async def handle_manual_clear_application(interaction: discord.Interaction, user_id, bot):
     result = await bot.database.execute(REMOVE_APPLICATION_FOR_USER_BY_ID, int(user_id))
     try:
-        await ctx.send(result)
+        await interaction.followup.send(result, ephemeral=True)
     except discord.DiscordException:
         pass
 
@@ -355,8 +354,8 @@ async def calculate_speed_bonus(message, listing_duration):
     time_difference = (datetime.now() - creation_time)
     return 100 - (time_difference.total_seconds() / listing_duration * 100) # Calculated by quickness of application over total life of raid listing.
 
-async def handle_new_application(ctx, bot, member, message, channel):
-    raid_data = await RH.retrieve_raid_data_by_message_id(ctx, bot, message.id)
+async def handle_new_application(interaction: discord.Interaction, bot, member, message, channel):
+    raid_data = await RH.retrieve_raid_data_by_message_id(interaction, bot, message.id)
     if not raid_data:
         return False
     _, pokemon_name = H.get_pokemon_name_from_raid(message)
@@ -373,7 +372,7 @@ async def handle_new_application(ctx, bot, member, message, channel):
     except discord.Forbidden:
         # Prevents users from applying without ability to send a DM.
         new_embed = discord.Embed(title="Communication Error", description="{}, I cannot DM you. You will not be able to apply for raids until I can.".format(member.mention))
-        await channel.send(" ", embed=new_embed, delete_after=15)
+        await interaction.followup.send(" ", embed=new_embed, ephemeral=True)
         return False
     role = discord.utils.get(member.roles, name=pokemon_name)
     time_to_end = raid_data.get("time_to_remove")
@@ -389,10 +388,10 @@ QUERY_APPLICATION_DATA_FOR_USER = """
 async def get_applicant_data_for_user(bot, user_id):
     return await bot.database.fetchrow(QUERY_APPLICATION_DATA_FOR_USER, user_id)
 
-async def handle_application_to_raid(bot, ctx, message, channel):
+async def handle_application_to_raid(bot, interaction: discord.Interaction, message, channel):
     guild = message.guild
-    member = guild.get_member(ctx.user_id)
-    result = await get_applicant_data_for_user(bot, ctx.user_id)
+    member = guild.get_member(interaction.user.id)
+    result = await get_applicant_data_for_user(bot, interaction.user.id)
 
     if result:
         applied_to_raid_id = result.get("raid_message_id")
@@ -407,7 +406,7 @@ async def handle_application_to_raid(bot, ctx, message, channel):
         else:
             await update_application_for_user(bot, member, applied_to_raid_id)
     else:
-        await handle_new_application(ctx, bot, member, message, channel)
+        await handle_new_application(interaction, bot, member, message, channel)
 
 QUERY_APPLICANT_BY_MESSAGE_ID = """
     SELECT * FROM raid_application_user_map WHERE (activity_check_message_id = $1);
@@ -578,9 +577,9 @@ async def process_and_add_user_to_lobby(bot, member, lobby, guild, message, lobb
 
     await check_if_lobby_full(bot, lobby.id)
 
-
-async def handle_activity_check_reaction(ctx, bot, message):
-    result = await bot.database.fetchrow(QUERY_APPLICATION_DATA_FOR_USER, ctx.user_id)
+# no interaction: discord.Interaction here bcs this deals with emoji reactions
+async def handle_activity_check_reaction(user, bot, message):
+    result = await bot.database.fetchrow(QUERY_APPLICATION_DATA_FOR_USER, user.id)
     if not result:
         return
 
@@ -597,7 +596,7 @@ async def handle_activity_check_reaction(ctx, bot, message):
     lobby = bot.get_channel(int(lobby_id))
 
     guild = lobby.guild
-    user_id = ctx.user_id
+    user_id = user.id
     member = guild.get_member(int(user_id))
     await process_and_add_user_to_lobby(bot, member, lobby, guild, message, lobby_data)
 
@@ -683,37 +682,37 @@ async def delete_lobby(bot, lobby):
 
     await asyncio.gather(*tasks)
 
-async def handle_admin_close_lobby(ctx, bot, lobby_id):
-    if lobby_id == "":
-        lobby_id = ctx.channel.id
+async def handle_admin_close_lobby(interaction: discord.Interaction, bot, lobby_id):
+    if not lobby_id:
+        lobby_id = interaction.channel.id
     lobby_data = await get_lobby_data_by_lobby_id(bot, lobby_id)
 
-    if lobby_data and lobby_id == ctx.channel.id:
-        lobby = ctx.channel
+    if lobby_data and lobby_id == interaction.channel.id:
+        lobby = interaction.channel
     else:
         lobby = await bot.retrieve_channel(lobby_id)
 
-    if lobby and not lobby.permissions_for(ctx.author).manage_channels:
+    if lobby and not lobby.permissions_for(interaction.user).manage_channels:
         embed = discord.Embed(title="", description="You do not have permission to manage that lobby.")
-        await bot.send_ignore_error(ctx, "", embed=embed, delete_after=15)
+        await interaction.followup.send(embed=embed, ephemeral=True)
         return False
 
     if lobby_data and lobby_data.get("lobby_channel_id") != lobby_id:
-        await bot.send_ignore_error(ctx, "The given channel id is not a valid lobby.", delete_after=15)
+        await interaction.followup.send("The given channel id is not a valid lobby.", ephemeral=True)
 
     if not lobby:
         try:
-            await ctx.send("The given channel id is not a valid lobby.")
+            await interaction.followup.send("The given channel id is not a valid lobby.")
         except discord.DiscordException:
             return
 
     try:
         embed = discord.Embed(title="", description="The lobby is being shut down.")
-        message = await ctx.send(embed=embed)
+        message = await interaction.followup.send(embed=embed)
     except discord.DiscordException:
         pass
     await delete_lobby(bot, lobby)
-    if lobby_data and lobby_id != ctx.channel.id:
+    if lobby_data and lobby_id != interaction.channel.id:
         try:
             embed = discord.Embed(title="", description="The requested lobby has been removed.")
             await message.edit(embed=embed)

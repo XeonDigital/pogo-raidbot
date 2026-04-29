@@ -167,7 +167,7 @@ async def handle_clear_all_requests_for_guild(interaction: discord.Interaction, 
             pass
         except discord.DiscordException as error:
             print("[!][{}] An error occurred when deleting a message [{}]".format(guild.name,  error))
-    await interaction.send("Total roles deleted: [{}]".format(len(query_results)), delete_after=15)
+    await interaction.followup.send("Total roles deleted: [{}]".format(len(query_results)), ephemeral=True)
 
 async def give_request_role(author, guild, role):
     blurb = "You have been given the role {} and you will be pinged **every time** a raid with that Pokémon name is created. If you want to opt out of the listings for this Pokémon, click on the 📪 on the listing in the requests channel. To opt back in, click on the 📬.".format(role.name)

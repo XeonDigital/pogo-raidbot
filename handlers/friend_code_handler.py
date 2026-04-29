@@ -74,14 +74,14 @@ async def get_friend_code(bot, user_id, host=False):
                             1 if host else 0)
     return result.get("friend_code") if result and result.get("friend_code") else "To set your friend code, type `-setfc 1234 5678 9012` in any lobby or appropriate channel.", True if result else False
 
-async def send_friend_code(ctx, bot):
-    friend_code, _ = await get_friend_code(bot, ctx.author.id)
-    message_to_send = f"{friend_code}\nFriend code for: {ctx.author.mention}"
+async def send_friend_code(interaction: discord.Interaction, bot):
+    friend_code, _ = await get_friend_code(bot, interaction.user.id)
+    message_to_send = f"{friend_code}\nFriend code for: {interaction.user.mention}"
     if len(friend_code) == 12:
         message_to_send = f"{message_to_send}\n```You can copy this message directly into the game.```"
 
     try:
-        await ctx.send(message_to_send)
+        await interaction.followup.send(message_to_send, ephemeral=True)
     except discord.DiscordException:
         pass
 
@@ -105,18 +105,18 @@ async def get_args_list_from_message(message):
     args.pop(0) #Pop the command out of the list
     return args
 
-async def set_friend_code(ctx, bot):
-    author = ctx.author
-    raid_channel = await RH.check_if_valid_raid_channel(bot, ctx.message.channel.id)
-    request_channel = await REQH.check_if_valid_request_channel(bot, ctx.message.channel.id)
+async def set_friend_code(interaction: discord.Interaction, bot):
+    author = interaction.user
+    raid_channel = await RH.check_if_valid_raid_channel(bot, interaction.channelid)
+    request_channel = await REQH.check_if_valid_request_channel(bot, interaction.channel.id)
 
     if raid_channel or request_channel:
         target = author
     else:
-        target = ctx
+        target = interaction
 
-    async with ctx.channel.typing():
-        content = await get_args_list_from_message(ctx.message)
+    async with interaction.channel.typing():
+        content = await get_args_list_from_message(interaction.message)
         fc = validate_fc(content)
         if not fc:
             new_embed = discord.Embed(title="Error", description="Invalid friend code. Valid friend code format is `1234 5678 9012` with or without spaces.")
@@ -166,27 +166,27 @@ async def add_trainer_level_to_table(bot, user_id, level):
 
     return UPDATED if result else INSERTED
 
-async def set_trainer_level(ctx, bot, level):
-    author = ctx.author
-    raid_channel = await RH.check_if_valid_raid_channel(bot, ctx.message.channel.id)
-    request_channel = await REQH.check_if_valid_request_channel(bot, ctx.message.channel.id)
+async def set_trainer_level(interaction: discord.Interaction, bot, level):
+    author = interaction.user
+    raid_channel = await RH.check_if_valid_raid_channel(bot, interaction.channel.id)
+    request_channel = await REQH.check_if_valid_request_channel(bot, interaction.channel.id)
 
     if raid_channel or request_channel:
         target = author
     else:
-        target = ctx
+        target = interaction
     
-    async with ctx.channel.typing():
+    async with interaction.channel.typing():
         try:
             level = int(level)
         except ValueError:
             embed = discord.Embed(title="Error", description="The given level is invalid. It must be between 1 and 50.")
-            await bot.send_ignore_error(target, "", embed=embed, delete_after=15)
+            await interaction.followup.send(embed=embed, ephemeral=True)
             return
             
         if level < 1 or level > 80:
             embed = discord.Embed(title="Error", description="The given level is invalid. It must be between 1 and 50.")
-            await bot.send_ignore_error(target, "", embed=embed, delete_after=15)
+            await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
         result = await add_trainer_level_to_table(bot, author.id, level)
@@ -235,17 +235,17 @@ async def add_trainer_name_to_table(bot, user_id, trainer_name):
 
 SPECIAL_CHARACTERS = "!@#$%^&*()[]{};:,./<>?\|`~-=_+\"\'"
 
-async def set_trainer_name(ctx, bot, name):
-    author = ctx.author
-    raid_channel = await RH.check_if_valid_raid_channel(bot, ctx.message.channel.id)
-    request_channel = await REQH.check_if_valid_request_channel(bot, ctx.message.channel.id)
+async def set_trainer_name(interaction: discord.Interaction, bot, name):
+    author = interaction.user
+    raid_channel = await RH.check_if_valid_raid_channel(bot, interaction.channel.id)
+    request_channel = await REQH.check_if_valid_request_channel(bot, interaction.channel.id)
 
     if raid_channel or request_channel:
         target = author
     else:
-        target = ctx
+        target = interaction
     
-    async with ctx.channel.typing():
+    async with interaction.channel.typing():
         if any(c in SPECIAL_CHARACTERS for c in name):
             new_embed = discord.Embed(title="Error", description="A name cannot contain any special characters.")
             try:
@@ -277,21 +277,21 @@ async def set_trainer_name(ctx, bot, name):
         except discord.DiscordException:
             pass
 
-async def send_trainer_information(ctx, bot, user_id):
-    author = ctx.author
+async def send_trainer_information(interaction: discord.Interaction, bot, user_id):
+    author = interaction.user
     print(user_id)
     if user_id == "0":
-        user_id = ctx.author.id
+        user_id = interaction.user.id
     else:
         try:
             user_id = int(user_id)
         except ValueError:
             embed = discord.Embed(title="Error", description="The provided user ID is not a valid number type")
-            await bot.send_ignore_error(ctx, "", embed=embed)
+            await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
-    raid_channel = await RH.check_if_valid_raid_channel(bot, ctx.message.channel.id)
-    request_channel = await REQH.check_if_valid_request_channel(bot, ctx.message.channel.id)
+    raid_channel = await RH.check_if_valid_raid_channel(bot, interaction.channel.id)
+    request_channel = await REQH.check_if_valid_request_channel(bot, interaction.channel.id)
 
     if raid_channel or request_channel:
         new_embed = discord.Embed(title="Error", description="This command cannot be used here.")
@@ -321,4 +321,4 @@ async def send_trainer_information(ctx, bot, user_id):
     else:
         new_embed = discord.Embed(title="Error", description="No trainer data found for that user ID")
 
-    await bot.send_ignore_error(ctx, "", embed=new_embed)
+    await interaction.followup.send(embed=new_embed, ephemeral=True)
