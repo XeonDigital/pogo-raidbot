@@ -300,7 +300,7 @@ async def request_pokemon_handle(bot, interaction: discord.Interaction, tier, po
             await author.send(author_dm)
         except discord.Forbidden:
             return
-        correction_suggestion = interaction.prefix + "request " + suggestion
+        correction_suggestion = f"/request {suggestion}"
         await interaction.user.send(correction_suggestion)
     else:
         pokemon_name = pokemon_name.title()
