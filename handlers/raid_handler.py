@@ -83,7 +83,7 @@ async def get_all_raids_for_guild(bot, ctx):
 GET_RAID_FOR_USER = """
  SELECT * FROM raids where (user_id = $1);
 """
-async def check_if_in_raid(ctx, bot, user_id):
+async def check_if_in_raid(interaction: discord.Interaction, bot, user_id):
     """Checks if a user is already in a raid. Prevents double listing."""
     return await bot.database.fetchrow(GET_RAID_FOR_USER, int(user_id))
 
@@ -134,26 +134,27 @@ async def delete_raid(bot, raid_id):
         return
 
 
-async def handle_clear_user_from_raid(ctx, bot, user_id):
-    guild = ctx.guild
-    member = guild.get_member(user_id)
+async def handle_clear_user_from_raid(interaction: discord.Interaction, bot, user_id):
+    guild = interaction.guild
+    member = guild.get_member(int(user_id)) # conv to int just to make sure its not a string
     if not member:
         try:
-            member = await guild.fetch_member(user_id)
+            member = await guild.fetch_member(int(user_id))
         except discord.DiscordException as error:
             pass
     if not member:
-        await ctx.send("That user doesn't exist on this server.", delete_after=5)
+        await interaction.followup.send("That user doesn't exist on this server.", delete_after=5)
         return
-    results = await check_if_in_raid(ctx, bot, user_id)
+    results = await check_if_in_raid(interaction, bot, user_id)
     if not results:
-        await ctx.send("That user is not in a raid.", delete_after=5)
+        await interaction.followup.send("That user is not in a raid.", delete_after=5)
         return
     message_id = results.get("message_id")
     channel_id = results.get("channel_id")
     guild_id = results.get("guild_id")
     guild = bot.get_guild(guild_id)
     channel = guild.get_channel(channel_id)
+
     try:
         message = await channel.fetch_message(message_id)
         await message.delete()
@@ -164,7 +165,7 @@ async def handle_clear_user_from_raid(ctx, bot, user_id):
     except discord.DiscordException as error:
         print("[!] An error occurred trying to remove a user from their raid manually. [{}]".format(error))
         return
-    await ctx.send("User was successfully removed from raid.", delete_after=5)
+    await interaction.followup.send("User was successfully removed from raid.", delete_after=5)
 
 CHECK_VALID_RAID_CHANNEL = """
  SELECT * FROM valid_raid_channels where (channel_id = $1)

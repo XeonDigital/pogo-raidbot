@@ -112,6 +112,12 @@ class Bot(commands.Bot):
         self.request_channel_cache = set()
         self.guild_raid_counters = {}
 
+    async def setup_hook(self):
+        # syncing commands globally
+        await self.tree.sync()
+        # do we wanna print to show everything is synced properly lol
+        # just add print statement here if u want it
+
     async def on_ready(self) -> None:
         # discord.py may call on_ready more than once (e.g. reconnect/resume).
         # Ensure we only spawn background tasks once.
