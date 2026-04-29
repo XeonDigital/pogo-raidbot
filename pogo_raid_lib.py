@@ -7,6 +7,38 @@ from data.pokemon import *
 import handlers.helpers as H
 #from bot_lib import wrap_bot_dm
 import re
+import string
+
+# Remove literal "shadow" anywhere in the string (case-insensitive); used when input mentions Shadow raids.
+_SHADOW_SUBSTRING = re.compile(r"shadow", re.IGNORECASE)
+
+
+def normalize_shadow_pokemon_name_for_lookup(name: str) -> str:
+    """
+    Normalize a user-supplied Pokémon name for dex / raid-boss lookups.
+
+    If the text contains ``shadow`` at all (any case), every occurrence is removed, then the
+    remainder is stripped of leading/trailing whitespace and punctuation only (internal hyphens and
+    letters are left as-is except runs of whitespace are collapsed to a single space). Result is
+    lowercase.
+
+    If there is no ``shadow`` substring, only leading/trailing whitespace is collapsed (runs of
+    spaces normalized); hyphens are preserved so names like ``mr-mime`` still match.
+    """
+    if not name:
+        return ""
+    s = str(name).strip()
+    if not s:
+        return ""
+
+    if "shadow" in s.lower():
+        remainder = _SHADOW_SUBSTRING.sub("", s)
+        edge_chars = string.whitespace + string.punctuation
+        remainder = remainder.strip(edge_chars)
+        remainder = " ".join(remainder.split())
+        return remainder.lower()
+
+    return " ".join(s.split()).lower()
 
 
 def build_image_link_serebii(num):
@@ -139,7 +171,7 @@ def format_invalid_tier_message(tier):
 """----------------------------------------------------------------"""
 """POKEMON NAME"""
 def validate_pokemon(pokemon_name, tier):
-    pokemon_name = pokemon_name.lower()
+    pokemon_name = normalize_shadow_pokemon_name_for_lookup(pokemon_name)
     is_valid = False
     suggestion = ""
     dex_num = 0

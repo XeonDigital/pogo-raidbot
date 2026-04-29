@@ -95,12 +95,54 @@ class GeneralCommands(commands.Cog):
     @commands.command(aliases=["raids", "bosses"])
     async def raid_bosses(self, ctx):
         """Gives a list of all raid bosses as per the Pokebattler API"""
-        print(self.__bot.dex.current_raid_bosses())
-        current_raids = '\n'.join(self.__bot.dex.current_raid_bosses())
-        print(current_raids)
-        embed = discord.Embed(title="Raid Bosses", description=f"The current raid bosses are\n{current_raids}")
+        raids = self.__bot.dex.raids or {}
+        shadow = []
+        normal = []
+
+        for boss_name, raid_data in raids.items():
+            display = (boss_name or "").strip().title()
+            if not display:
+                continue
+            tier = (raid_data or {}).get("tier") or ""
+            if isinstance(tier, str) and tier.endswith("_SHADOW"):
+                shadow.append(f"Shadow {display}")
+            else:
+                normal.append(display)
+
+        shadow.sort()
+        normal.sort()
+
+        embed = discord.Embed(title="Raid Bosses")
+        if normal:
+            embed.add_field(name="Raids", value="\n".join(normal), inline=False)
+        if shadow:
+            embed.add_field(name="Shadow Raids", value="\n".join(shadow), inline=False)
+        if not normal and not shadow:
+            embed.description = "No raid bosses cached. Try `refresh_raids`."
+
         await asyncio.gather(self.__bot.send_ignore_error(ctx, " ", embed=embed),
                              self.__bot.delete_ignore_error(ctx.message))
+
+    @commands.command(aliases=["update_raids", "reload_raids"])
+    async def refresh_raids(self, ctx):
+        """
+        Refresh the cached raids list from Pokebattler without restarting the bot.
+        Runs the network call in a worker thread to avoid blocking the event loop.
+        """
+        await asyncio.gather(self.__bot.delete_ignore_error(ctx.message))
+
+        try:
+            await asyncio.to_thread(self.__bot.dex.update_raids_cache)
+        except Exception as e:
+            await self.__bot.send_ignore_error(ctx, f"Failed to refresh raids: `{type(e).__name__}`")
+            return
+
+        bosses = self.__bot.dex.current_raid_bosses()
+        preview = ", ".join(bosses[:15]) + (" ..." if len(bosses) > 15 else "")
+        await self.__bot.send_ignore_error(
+            ctx,
+            f"Refreshed raids. Bosses cached: **{len(bosses)}**\n{preview}"
+        )
 
 async def setup(bot):
     """Default setup function for file"""
