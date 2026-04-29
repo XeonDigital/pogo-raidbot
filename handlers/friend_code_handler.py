@@ -72,7 +72,7 @@ async def get_friend_code(bot, user_id, host=False):
                             datetime.now(),
                             int(user_id),
                             1 if host else 0)
-    return result.get("friend_code") if result and result.get("friend_code") else "To set your friend code, type `-setfc 1234 5678 9012` in any lobby or appropriate channel.", True if result else False
+    return result.get("friend_code") if result and result.get("friend_code") else "To set your friend code, type `/setfc 1234 5678 9012` in any lobby or appropriate channel.", True if result else False
 
 async def send_friend_code(interaction: discord.Interaction, bot):
     friend_code, _ = await get_friend_code(bot, interaction.user.id)
@@ -85,32 +85,20 @@ async def send_friend_code(interaction: discord.Interaction, bot):
     except discord.DiscordException:
         pass
 
-def validate_fc(args):
-    joined_args = "".join(args)
-    if not len(joined_args) == 12:
-        return
-
-    valid_format = re.compile(r'((\d){4} ?){3}')
-    valid = re.match(valid_format, joined_args)
-
-    if valid:
-        return joined_args
-
-async def get_args_list_from_message(message):
-    content = message.content
-    args = content.split(" ")
-
-    if len(content) < 1:
-        return args
-    args.pop(0) #Pop the command out of the list
-    return args
+def validate_fc(fc_string: str):
+    # Strip any spaces the user might have typed
+    stripped_fc = fc_string.replace(" ", "")
+    
+    # Check if it's exactly 12 characters and all numbers
+    if len(stripped_fc) == 12 and stripped_fc.isdigit():
+        return stripped_fc
+        
+    return None
 
 async def set_friend_code(interaction: discord.Interaction, bot, fc: str):
     author = interaction.user
     
-    # pass the fc variable directly to validate_fc
-    # no need for unnecessary checks
-    valid_fc = validate_fc([fc]) 
+    valid_fc = validate_fc(fc) 
     
     if not valid_fc:
         new_embed = discord.Embed(title="Error", description="Invalid friend code. Valid friend code format is `1234 5678 9012` with or without spaces.")
