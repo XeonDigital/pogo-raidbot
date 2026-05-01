@@ -280,10 +280,6 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
             await SH.toggle_raid_sticky(bot, interaction, int(interaction.channel.id), int(interaction.guild.id))
         except discord.DiscordException as error:
             print(f'[!] Exception occurred during toggle of raid sticky. [{error}]')
-        #try:
-        #    await increment_raid_counter(ctx, bot, int(ctx.guild.id))
-        #except discord.DiscordException as error:
-        #    print(f'[!] Exception occured during increment of raid counter. [{error}]')
     else:
         response += "---------\n"
         response += "*Here's the command you entered below. Suggestions were added. Check that it is correct and try again.*\n"

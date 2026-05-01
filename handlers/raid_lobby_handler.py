@@ -171,13 +171,9 @@ async def create_raid_lobby(interaction: discord.Interaction, bot, raid_message_
     if muted_role:
         overwrites.update({muted_role:discord.PermissionOverwrite(send_messages=False)})
 
-    # count = await RH.get_raid_count(bot, ctx, False)
-    # channel_name = "raid-lobby-{}".format(await RH.get_raid_count(bot, ctx, False))
-
     reason = "Spawning new raid lobby for [{}]".format(raid_host_member.name)
     try:
         new_raid_lobby = await raid_lobby_category_channel.create_text_channel("raid-lobby-{}".format(await RH.get_raid_count(bot, interaction, False)), reason=reason, overwrites=overwrites)
-        #await increment_raid_counter(ctx, bot, ctx.guild.id)
     except discord.DiscordException as error:
         try:
             await interaction.followup.send("Something went wrong when trying to create your raid lobby: [{}]".format(error), ephemeral=True)
