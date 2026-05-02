@@ -16,7 +16,7 @@ class AdminCommands(commands.Cog):
 
     @app_commands.command(name="clear_raid", description="Mod Only - Removes a given user from their raid. Deletes database entry.")
     @app_commands.guild_only()
-    @app_commands.default_permissions(manage_messages=True)
+    @app_commands.checks.has_permissions(manage_messages=True)
     async def clear_raid(self, interaction: discord.Interaction, user_id: str):
         await interaction.response.defer(ephemeral=True)
         await RH.handle_clear_user_from_raid(interaction, self.__bot, user_id)
@@ -25,7 +25,7 @@ class AdminCommands(commands.Cog):
 
     @app_commands.command(name="clear_requests", description="Mod Only - Clears all requests for this guild.")
     @app_commands.guild_only()
-    @app_commands.has_guild_permissions(manage_messages=True, manage_roles=True)
+    @app_commands.checks.has_permissions(manage_messages=True, manage_roles=True)
     async def clear_requests(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         await REQH.handle_clear_all_requests_for_guild(interaction, self.__bot)
@@ -33,7 +33,7 @@ class AdminCommands(commands.Cog):
 
     @app_commands.command(name="clear_application", description="Mod Only - Clears an application for a specific user by ID.")
     @app_commands.guild_only()
-    @app_commands.has_guild_permissions(manage_messages=True, manage_roles=True)
+    @app_commands.checks.has_permissions(manage_messages=True, manage_roles=True)
     async def clear_application(self, interaction: discord.Interaction, user_id: str):
         await interaction.response.defer(ephemeral=True)
         await RLH.handle_manual_clear_application(interaction, user_id, self.__bot)
@@ -41,7 +41,7 @@ class AdminCommands(commands.Cog):
     
     @app_commands.command(name="a_close", description="Mod Only - Flags a raid lobby for closure.")
     @app_commands.guild_only()
-    @app_commands.has_guild_permissions(manage_messages=True, manage_roles=True, manage_channels=True)
+    @app_commands.checks.has_permissions(manage_messages=True, manage_roles=True, manage_channels=True)
     async def a_close(self, interaction: discord.Interaction, channel_id: str = ""):
         await interaction.response.defer(ephemeral=True)
         await RLH.handle_admin_close_lobby(interaction, self.__bot, channel_id)
