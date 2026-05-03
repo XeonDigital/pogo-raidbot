@@ -44,7 +44,11 @@ BOT.live = False
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("-l", action="store_true")
+    parser.add_argument("--sync", action="store_true", help="Sync application commands globally")
     args = parser.parse_args()
+    
+    BOT.should_sync = args.sync
+
     if args.l:
         print("[!] Running bot live.")
         BOT.live=True

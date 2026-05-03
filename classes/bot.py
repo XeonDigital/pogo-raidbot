@@ -34,10 +34,14 @@ class Bot(commands.Bot):
         self.raid_channel_cache = set()
         self.request_channel_cache = set()
         self.guild_raid_counters = {}
+        self.should_sync = False
 
     async def setup_hook(self):
         # syncing commands globally
-        await self.tree.sync()
+        if self.should_sync:
+            print("Syncing application commands globally...")
+            await self.tree.sync()
+            print("Commands synced.")
         # do we wanna print to show everything is synced properly lol
         # just add print statement here if u want it
 
