@@ -2,9 +2,6 @@
 Bot class that wraps discord client
 """
 import asyncio
-import os
-from os import environ
-import sys
 import discord
 from discord.ext import commands
 
@@ -28,20 +25,28 @@ class Bot(commands.Bot):
         self.applicant_trigger = asyncio.Event()
         self.lobby_remove_trigger = asyncio.Event()
         self._startup_complete = False
-
         self.database = None
+        self.live = False
         self.dex = pokedex.Pokedex()
         self.raid_channel_cache = set()
         self.request_channel_cache = set()
         self.guild_raid_counters = {}
         self.should_sync = False
+        self.test_server = None
 
     async def setup_hook(self):
         # syncing commands globally
         if self.should_sync:
-            print("Syncing application commands globally...")
+            print("[i]Syncing application commands globally...")
             await self.tree.sync()
-            print("Commands synced.")
+            print("[i]Commands synced.")
+            if not self.live and self.test_server is not None:
+                print(f"[i]Syncing to Test Server...")
+                self.tree.copy_global_to(guild=self.test_server)
+                print(f"[i]Commands Synced")
+            else:
+                print(f"[!] Please fill in the test server's ID")
+                
         # do we wanna print to show everything is synced properly lol
         # just add print statement here if u want it
 
