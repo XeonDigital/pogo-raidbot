@@ -36,14 +36,16 @@ class Bot(commands.Bot):
 
     async def setup_hook(self):
         # syncing commands globally
+        self.loop.create_task(startup_process(self))
         if self.should_sync:
             print("[i]Syncing application commands globally...")
             await self.tree.sync()
-            print("[i]Commands synced.")
+            print("[i]Global Commands synced.")
             if not self.live and self.test_server is not None:
                 print(f"[i]Syncing to Test Server...")
-                self.tree.copy_global_to(guild=self.test_server)
-                print(f"[i]Commands Synced")
+                #self.tree.copy_global_to(guild=self.test_server)
+                await self.tree.sync(guild=self.test_server)
+                print(f"[i]Commands Synced to test server")
             else:
                 print(f"[!] Please fill in the test server's ID")
                 
@@ -56,8 +58,6 @@ class Bot(commands.Bot):
         if self._startup_complete:
             return
         self._startup_complete = True
-
-        self.loop.create_task(startup_process(self))
         self.loop.create_task(status_update_loop(self))
         self.loop.create_task(applicant_loop(self))
         self.loop.create_task(lobby_removal_loop(self))

@@ -194,7 +194,10 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
     #     await interaction.message.delete()
     # except:
     #     pass
+    # TODO send a interaction message if the raid channel is invalid 
     if not await check_if_valid_raid_channel(bot, interaction.channel.id):
+        print(f"[i] Please enter the command in the valid raid channel")
+        interaction.followup.send(f"Please enter the command in the correct raid channel")
         return
 
     if await check_if_in_raid(interaction, bot, interaction.user.id):
