@@ -35,32 +35,16 @@ class Bot(commands.Bot):
         self.test_server = None
 
     async def setup_hook(self):
-        # syncing commands globally
         self.loop.create_task(startup_process(self))
-        if self.should_sync:
-            print("[i]Syncing application commands globally...")
-            await self.tree.sync()
-            print("[i]Global Commands synced.")
-            if not self.live and self.test_server is not None:
-                print(f"[i]Syncing to Test Server...")
-                #self.tree.copy_global_to(guild=self.test_server)
-                await self.tree.sync(guild=self.test_server)
-                print(f"[i]Commands Synced to test server")
-            else:
-                print(f"[!] Please fill in the test server's ID")
-                
-        # do we wanna print to show everything is synced properly lol
-        # just add print statement here if u want it
-
-    async def on_ready(self) -> None:
-        # discord.py may call on_ready more than once (e.g. reconnect/resume).
-        # Ensure we only spawn background tasks once.
-        if self._startup_complete:
-            return
-        self._startup_complete = True
         self.loop.create_task(status_update_loop(self))
         self.loop.create_task(applicant_loop(self))
         self.loop.create_task(lobby_removal_loop(self))
+        # do we wanna print to show everything is synced properly lol
+        # just add print statement here if u want it
+
+    #async def on_ready(self) -> None:
+        # discord.py may call on_ready more than once (e.g. reconnect/resume).
+        # Ensure we only spawn background tasks once.
 
     async def retrieve_channel(self, *args, **kwargs):
         """

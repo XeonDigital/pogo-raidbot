@@ -41,6 +41,7 @@ valid_tiers = [
     "RAID_LEVEL_1_SHADOW",
     "RAID_LEVEL_3_SHADOW",
     "RAID_LEVEL_5_SHADOW",
+    "RAID_LEVEL_ULTRA_BEAST"
 ]
 def current_tier_valid(tier):
     return tier in valid_tiers
