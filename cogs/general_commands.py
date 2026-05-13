@@ -132,9 +132,9 @@ class GeneralCommands(commands.Cog):
             embed.add_field(name="Tier 3", value="\n".join(tier3), inline=False)
             embed.add_field(name="Tier 1", value="\n".join(tier5), inline=False)
             embed.add_field(name="Mega", value="\n".join(mega), inline=False)
-            embed.add_field(name="Shadow Tier 5", value="\n".join(sha_tier1), inline=False)
+            embed.add_field(name="Shadow Tier 5", value="\n".join(sha_tier5), inline=False)
             embed.add_field(name="Shadow Tier 3", value="\n".join(sha_tier3), inline=False)
-            embed.add_field(name="Shadow Tier 1", value="\n".join(sha_tier5), inline=False)
+            embed.add_field(name="Shadow Tier 1", value="\n".join(sha_tier1), inline=False)
         else:
             embed.description = "No raid bosses cached. Try `/refresh_raids`."
         await interaction.followup.send(embed=embed)
