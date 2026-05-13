@@ -12,6 +12,7 @@ class CommandErrorHandler(commands.Cog):
 
     async def on_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if interaction.command is not None and hasattr(interaction.command, 'on_error'):
+            print(f"[!]A error occured when running a slash command: {error}")
             return
 
         error = getattr(error, 'original', error)

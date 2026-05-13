@@ -88,30 +88,55 @@ class GeneralCommands(commands.Cog):
     async def raid_bosses(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=False)
         raids = self.__bot.dex.raids or {}
-        shadow = []
-        normal = []
+        tier1 = []
+        tier3 = []
+        tier5 = []
+        mega = []
+        sha_tier1 = []
+        sha_tier3 = []
+        sha_tier5 = []
 
         for boss_name, raid_data in raids.items():
             display = (boss_name or "").strip().title()
             if not display:
                 continue
             tier = (raid_data or {}).get("tier") or ""
-            if isinstance(tier, str) and tier.endswith("_SHADOW"):
-                shadow.append(f"Shadow {display}")
-            else:
-                normal.append(display)
+            match tier:
+                case "RAID_LEVEL_1":
+                    tier1.append(display)
+                case "RAID_LEVEL_3":
+                    tier3.append(display)
+                case "RAID_LEVEL_5" | "RAID_LEVEL_ULTRA_BEAST":
+                    tier5.append(display)
+                case "RAID_LEVEL_MEGA" | "RAID_LEVEL_ELITE":
+                    mega.append(display)
+                case "RAID_LEVEL_1_SHADOW":
+                    sha_tier1.append(display)
+                case "RAID_LEVEL_3_SHADOW":
+                    sha_tier3.append(display)
+                case "RAID_LEVEL_5_SHADOW":
+                    sha_tier5.append(display)
 
-        shadow.sort()
-        normal.sort()
+        tier1.sort()
+        tier3.sort()
+        tier5.sort()
+        mega.sort()
+        sha_tier1.sort()
+        sha_tier3.sort()
+        sha_tier5.sort()
 
         embed = discord.Embed(title="Raid Bosses")
-        if normal:
-            embed.add_field(name="Raids", value="\n".join(normal), inline=False)
-        if shadow:
-            embed.add_field(name="Shadow Raids", value="\n".join(shadow), inline=False)
-        if not normal and not shadow:
+        
+        if tier1 and tier3 and tier5 and mega and sha_tier1 and sha_tier3 and sha_tier5:
+            embed.add_field(name="Tier 5 ", value="\n".join(tier1), inline=False)
+            embed.add_field(name="Tier 3", value="\n".join(tier3), inline=False)
+            embed.add_field(name="Tier 1", value="\n".join(tier5), inline=False)
+            embed.add_field(name="Mega", value="\n".join(mega), inline=False)
+            embed.add_field(name="Shadow Tier 5", value="\n".join(sha_tier1), inline=False)
+            embed.add_field(name="Shadow Tier 3", value="\n".join(sha_tier3), inline=False)
+            embed.add_field(name="Shadow Tier 1", value="\n".join(sha_tier5), inline=False)
+        else:
             embed.description = "No raid bosses cached. Try `/refresh_raids`."
-
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="refresh_raids", description="Refresh the cached raids list from Pokebattler.")
