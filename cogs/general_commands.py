@@ -128,10 +128,10 @@ class GeneralCommands(commands.Cog):
         embed = discord.Embed(title="Raid Bosses")
         
         if tier1 and tier3 and tier5 and mega and sha_tier1 and sha_tier3 and sha_tier5:
-            embed.add_field(name="Tier 5 ", value="\n".join(tier1), inline=False)
-            embed.add_field(name="Tier 3", value="\n".join(tier3), inline=False)
-            embed.add_field(name="Tier 1", value="\n".join(tier5), inline=False)
             embed.add_field(name="Mega", value="\n".join(mega), inline=False)
+            embed.add_field(name="Tier 5 ", value="\n".join(tier5), inline=False)
+            embed.add_field(name="Tier 3", value="\n".join(tier3), inline=False)
+            embed.add_field(name="Tier 1", value="\n".join(tier1), inline=False)
             embed.add_field(name="Shadow Tier 5", value="\n".join(sha_tier5), inline=False)
             embed.add_field(name="Shadow Tier 3", value="\n".join(sha_tier3), inline=False)
             embed.add_field(name="Shadow Tier 1", value="\n".join(sha_tier1), inline=False)
