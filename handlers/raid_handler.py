@@ -254,7 +254,8 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
             end_string = f' hosted by {interaction.user.mention}\n'
         channel_message_body = start_string + end_string
         try:
-            message = await interaction.followup.send(channel_message_body, embed=response, wait=True)
+            message = await interaction.channel.send(channel_message_body, embed=response)
+            await interaction.followup.send("Raid listed in the channel.", ephemeral=True)
         except discord.DiscordException as error:
             print(f'[*][{interaction.guild.name}][{interaction.user}] An error occurred listing a raid. [{error}]')
             return

@@ -81,7 +81,8 @@ async def send_friend_code(interaction: discord.Interaction, bot):
         message_to_send = f"{message_to_send}\n```You can copy this message directly into the game.```"
 
     try:
-        await interaction.followup.send(message_to_send, ephemeral=True)
+        await interaction.channel.send(message_to_send)
+        await interaction.followup.send("Sent to the channel.", ephemeral=True)
     except discord.DiscordException:
         pass
 
@@ -261,4 +262,8 @@ async def send_trainer_information(interaction: discord.Interaction, bot, user_i
     else:
         new_embed = discord.Embed(title="Error", description="No trainer data found for that user ID")
 
-    await interaction.followup.send(embed=new_embed, ephemeral=True)
+    try:
+        await interaction.channel.send(embed=new_embed)
+        await interaction.followup.send("Sent to the channel.", ephemeral=True)
+    except discord.DiscordException:
+        pass

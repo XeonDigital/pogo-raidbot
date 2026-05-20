@@ -135,7 +135,8 @@ async def get_counter(bot, interaction: discord.Interaction, tier, name, weather
     embed_thumbnail = build_image_link_github(dex_num)
     embed.set_thumbnail(url=embed_thumbnail)
     try:
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.channel.send(embed=embed)
+        await interaction.followup.send("Counters sent to the channel.", ephemeral=True)
     except discord.DiscordException:
         pass
 
