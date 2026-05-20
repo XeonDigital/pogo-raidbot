@@ -7,28 +7,31 @@ from handlers import raid_lobby_handler as RLH
 from handlers import raid_lobby_management as RLM
 from handlers import sticky_handler as SH
 
-async def raid_delete_handle(ctx, bot):
-    if not await RH.message_is_raid(ctx, bot, ctx.message_id):
+async def raid_delete_handle(payload, bot):
+    if not await RH.message_is_raid(payload, bot, payload.message_id):
         return
 
-    await RH.remove_raid_from_table(bot, ctx.message_id)
+    await RH.remove_raid_from_table(bot, payload.message_id)
 
-    lobby_data = await RLH.get_lobby_data_by_raid_id(bot, ctx.message_id)
+    lobby_data = await RLH.get_lobby_data_by_raid_id(bot, payload.message_id)
     if not lobby_data:
         return
-    user_id = lobby_data.get("host_user_id")
-    ctx.user_id = user_id
+    
+    # We no longer modify the payload object. Let `alter_deletion_time_for_raid_lobby`
+    # handle it implicitly via the IDs stored.
     raid_id = lobby_data.get("raid_message_id")
     await RLH.alter_deletion_time_for_raid_lobby(bot, raid_id)
 
     try:
-        await SH.toggle_raid_sticky(bot, ctx, int(ctx.channel_id), int(ctx.guild_id))
+        # In `event_listeners.py` raw message events do not create a command interaction.
+        # We pass `None` for interaction, as toggle_raid_sticky uses database lookups primarily.
+        await SH.toggle_raid_sticky(bot, None, int(payload.channel_id), int(payload.guild_id))
     except discord.DiscordException as error:
         print("[!] An error occurred [{}]".format(error))
 
-async def request_delete_handle(ctx, bot):
-    does_exist, channel_id, message_id, role_id = await REQH.get_request_by_message_id(bot, ctx.message_id)
-    guild = bot.get_guild(ctx.guild_id)
+async def request_delete_handle(payload, bot):
+    does_exist, channel_id, message_id, role_id = await REQH.get_request_by_message_id(bot, payload.message_id)
+    guild = bot.get_guild(payload.guild_id)
     if not does_exist:
         return
     role = discord.utils.get(guild.roles, id=role_id)
@@ -39,22 +42,26 @@ async def request_delete_handle(ctx, bot):
             message = await channel.fetch_message(message_id)
     except discord.DiscordException:
         pass
-    await REQH.delete_request_role_and_post(ctx, bot, guild, message, role)
+    
+    # Passing payload instead of context
+    await REQH.delete_request_role_and_post(payload, bot, guild, message, role)
 
-async def raw_message_delete_handle(ctx, bot):
-    if await RH.check_if_valid_raid_channel(bot, ctx.channel_id):
-        await raid_delete_handle(ctx, bot)
+async def raw_message_delete_handle(payload, bot):
+    if await RH.check_if_valid_raid_channel(bot, payload.channel_id):
+        await raid_delete_handle(payload, bot)
 
-    if await REQH.check_if_valid_request_channel(bot, ctx.channel_id):
-        await request_delete_handle(ctx, bot)
+    if await REQH.check_if_valid_request_channel(bot, payload.channel_id):
+        await request_delete_handle(payload, bot)
 
-    channel_id = ctx.channel_id
+    channel_id = payload.channel_id
     channel = bot.get_channel(int(channel_id))
-    if bot.categories_allowed and channel.type == discord.ChannelType.private:
-        applicant_data = await RLH.get_applicant_data_by_message_id(bot, ctx.message_id)
+    
+    # Need to check `channel` validity before checking `.type`
+    if channel and bot.categories_allowed and channel.type == discord.ChannelType.private:
+        applicant_data = await RLH.get_applicant_data_by_message_id(bot, payload.message_id)
         if not applicant_data:
             return
-        if not applicant_data.get("checked_in") and ctx.message_id == applicant_data.get("activity_check_message_id"):
+        if not applicant_data.get("checked_in") and payload.message_id == applicant_data.get("activity_check_message_id"):
             await RLH.handle_user_failed_checkin(bot, applicant_data)
 
 async def on_guild_channel_delete(channel, bot):

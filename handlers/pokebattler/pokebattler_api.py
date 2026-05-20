@@ -34,13 +34,14 @@ def fetch_rankings():
 valid_tiers = [
     "RAID_LEVEL_1",
     "RAID_LEVEL_3",
-    "RAID_LEVEL_4_5",
     "RAID_LEVEL_5",
     "RAID_LEVEL_6",
     "RAID_LEVEL_MEGA",
+    "RAID_LEVEL_ELITE",
     "RAID_LEVEL_1_SHADOW",
     "RAID_LEVEL_3_SHADOW",
     "RAID_LEVEL_5_SHADOW",
+    "RAID_LEVEL_ULTRA_BEAST"
 ]
 def current_tier_valid(tier):
     return tier in valid_tiers

@@ -26,9 +26,9 @@ async def check_if_valid_request_channel(bot, channel_id):
 GET_ALL_REQUESTS_FOR_GUILD = """
   SELECT * FROM request_role_id_map WHERE (guild_id = $1);
 """
-async def handle_get_all_requests(ctx, bot):
-    results = await bot.database.fetch(GET_ALL_REQUESTS_FOR_GUILD, int(ctx.guild.id))
-    await ctx.send(results)
+async def handle_get_all_requests(interaction: discord.Interaction, bot):
+    results = await bot.database.fetch(GET_ALL_REQUESTS_FOR_GUILD, int(interaction.guild.id))
+    await interaction.followup.send_message(results)
 
 FETCH_REQUEST_CHANNEL_INFO = """
  SELECT * FROM valid_request_channels where (guild_id = $1);
@@ -48,10 +48,10 @@ UPDATE valid_request_channels
 SET channel_id = $1
 WHERE (guild_id = $2);
 """
-async def database_register_request_channel(bot, ctx, channel_id, guild_id):
+async def database_register_request_channel(bot, interaction: discord.Interaction, channel_id, guild_id):
     request_channel_id = await get_request_channel(bot, guild_id)
     if request_channel_id:
-        await handle_clear_all_requests_for_guild(ctx, bot)
+        await handle_clear_all_requests_for_guild(interaction, bot)
     results = None
 
     try:
@@ -64,7 +64,7 @@ async def database_register_request_channel(bot, ctx, channel_id, guild_id):
     except asyncpg.PostgresError as e:
         print("[!] Error occured registering request channel. [{}]".format(e))
     if results:
-        print("[*] [{}] [{}] New request channel registered.".format(ctx.guild.name, channel_id))
+        print("[*] [{}] [{}] New request channel registered.".format(interaction.guild.name, channel_id))
 
 how_to_request = """
 To make a request, type the following:
@@ -97,13 +97,13 @@ INSERT_NEW_ROLE = """
 INSERT INTO request_role_id_map (role_id, message_id, guild_id, role_name)
 VALUES ($1, $2, $3, $4);
 """
-async def set_up_request_role_and_message(bot, ctx, pokemon_name, number):
-    guild = ctx.guild
+async def set_up_request_role_and_message(bot, interaction: discord.Interaction, pokemon_name, number):
+    guild = interaction.guild
     try:
         new_role = await guild.create_role(name=pokemon_name, reason="Setting up a request role.")
     except discord.DiscordException as error:
         print("[!] An error occurred creating a new role: [{}]".format(error))
-    author = ctx.author
+    author = interaction.user
     try:
         await give_request_role(author, guild, new_role)
     except discord.DiscordException as error:
@@ -143,18 +143,13 @@ DELETE_ALL_ROLE_DATA_FOR_GUILD = """
   DELETE FROM request_role_id_map
   WHERE (guild_id = $1)
 """
-async def handle_clear_all_requests_for_guild(ctx, bot):
-    if not ctx.message.channel.permissions_for(ctx.author).manage_roles or\
-       not ctx.message.channel.permissions_for(ctx.author).manage_messages:
-        embed = discord.Embed(title="", description="You do not have permission to manage channels in the target guild.")
-        await bot.send_ignore_error(ctx, "", embed=embed, delete_after=15)
-        return False
-
+async def handle_clear_all_requests_for_guild(interaction: discord.Interaction, bot):
+    # no need for perms check since slash command setup alr handles it
     async with bot.database.connect() as c:
-        query_results = await c.fetch(GET_ALL_ROLES_FOR_GUILD, ctx.guild.id)
-        await c.execute(DELETE_ALL_ROLE_DATA_FOR_GUILD, ctx.guild.id)
+        query_results = await c.fetch(GET_ALL_ROLES_FOR_GUILD, interaction.guild.id)
+        await c.execute(DELETE_ALL_ROLE_DATA_FOR_GUILD, interaction.guild.id)
 
-    guild = ctx.guild
+    guild = interaction.guild
     channel_id = await get_request_channel(bot, guild.id)
     channel = guild.get_channel(channel_id)
     for result in query_results:
@@ -172,7 +167,7 @@ async def handle_clear_all_requests_for_guild(ctx, bot):
             pass
         except discord.DiscordException as error:
             print("[!][{}] An error occurred when deleting a message [{}]".format(guild.name,  error))
-    await ctx.send("Total roles deleted: [{}]".format(len(query_results)), delete_after=15)
+    await interaction.followup.send("Total roles deleted: [{}]".format(len(query_results)), ephemeral=True)
 
 async def give_request_role(author, guild, role):
     blurb = "You have been given the role {} and you will be pinged **every time** a raid with that Pokémon name is created. If you want to opt out of the listings for this Pokémon, click on the 📪 on the listing in the requests channel. To opt back in, click on the 📬.".format(role.name)
@@ -184,8 +179,8 @@ async def give_request_role(author, guild, role):
         print("[!] An error occurred giving a user a role: [{}]".format(error))
         return
 
-async def increment_request_count(ctx, bot, channel_id, message_id):
-    guild = ctx.guild
+async def increment_request_count(interaction: discord.Interaction, bot, channel_id, message_id):
+    guild = interaction.guild
     request_channel_id = await get_request_channel(bot, guild.id)
     request_channel = guild.get_channel(request_channel_id)
     try:
@@ -217,8 +212,8 @@ async def increment_request_count(ctx, bot, channel_id, message_id):
     except discord.DiscordException as error:
         print("[!] An error occurred trying to update a request tracker. [{}]".format(error))
 
-async def decrement_request_count(ctx, bot, channel_id, message_id):
-    guild = ctx.guild
+async def decrement_request_count(interaction: discord.Interaction, bot, channel_id, message_id):
+    guild = interaction.guild
     request_channel_id = await get_request_channel(bot, guild.id)
     request_channel = guild.get_channel(request_channel_id)
     try:
@@ -236,7 +231,7 @@ async def decrement_request_count(ctx, bot, channel_id, message_id):
     count -= 1
     if count <= 0:
         role = discord.utils.get(guild.roles, name=embed.title)
-        await delete_request_role_and_post(ctx, bot, guild, message, role)
+        await delete_request_role_and_post(interaction, bot, guild, message, role)
         return
     new_embed = discord.Embed(title=embed.title, description="")
     thumbnail_url = embed.thumbnail.url
@@ -259,7 +254,7 @@ DELETE_REQUEST_FROM_TABLE = """
     DELETE FROM request_role_id_map WHERE (role_id = $1)
     RETURNING message_id
 """
-async def delete_request_role_and_post(ctx, bot, guild, message, role):
+async def delete_request_role_and_post(interaction: discord.Interaction, bot, guild, message, role):
     try:
         if message:
             await message.delete()
@@ -281,23 +276,23 @@ async def check_if_user_already_assigned_role(member, role_id):
         return True
     return False
 
-async def request_pokemon_handle(bot, ctx, tier, pokemon_name):
+async def request_pokemon_handle(bot, interaction: discord.Interaction, tier, pokemon_name):
     """Sets up a request and gives you a role for that Pokemon"""
-    author = ctx.author
+    author = interaction.user
     if not tier or (tier.lower() == "mega" and not pokemon_name):
-        await author.send(format_request_failed_dm(ctx.guild.name, "No pokemon given to request."))
+        await author.send(format_request_failed_dm(interaction.guild.name, "No pokemon given to request."))
         return
-    channel_id = ctx.channel.id
+    channel_id = interaction.channel.id
 
     if not pokemon_name:
         pokemon_name = tier
         tier = ""
-    guild_id = ctx.guild.id
+    guild_id = interaction.guild.id
     is_valid, response, suggestion, dex_num = validate_pokemon(pokemon_name, tier)
     if tier.lower() == "mega" and not pokemon_name.startswith("Mega ", 0, 5):
         pokemon_name = "Mega " + pokemon_name
     if not is_valid:
-        author_dm = H.guild_member_dm(ctx.guild.name, "")
+        author_dm = H.guild_member_dm(interaction.guild.name, "")
         author_dm += response
         author_dm += "---------\n"
         author_dm += "*Here's the command you entered below. Suggestions were added. Check that it is correct and try again.*\n"
@@ -305,75 +300,86 @@ async def request_pokemon_handle(bot, ctx, tier, pokemon_name):
             await author.send(author_dm)
         except discord.Forbidden:
             return
-        correction_suggestion = ctx.prefix + "request " + suggestion
-        await ctx.author.send(correction_suggestion)
+        correction_suggestion = f"/request {suggestion}"
+        await interaction.user.send(correction_suggestion)
     else:
         pokemon_name = pokemon_name.title()
         temp = pokemon_name.replace("-Altered", "")
         temp = temp.replace("-Origin","")
         if not bot.dex.is_current_raid_boss(temp):
             embed = discord.Embed(title="Error", description=f"That pokemon ({pokemon_name}) is not currently in rotation. If you believe this is an error, please contact TheStaplergun#6920.")
-            await bot.send_ignore_error(ctx.author, " ", embed=embed)
+            await bot.send_ignore_error(interaction.user, " ", embed=embed)
             return
         does_exist, request_channel_id, message_id, role_id = await check_if_request_message_exists(bot, pokemon_name, guild_id)
         if not does_exist:
-            await set_up_request_role_and_message(bot, ctx, pokemon_name, dex_num)
+            await set_up_request_role_and_message(bot, interaction, pokemon_name, dex_num)
             return
 
         if not await check_if_user_already_assigned_role(author, role_id):
-            role = discord.utils .get(ctx.guild.roles, id=role_id)
-            await give_request_role(author, ctx.guild, role)
-            await increment_request_count(ctx, bot, request_channel_id, message_id)
+            role = discord.utils .get(interaction.guild.roles, id=role_id)
+            await give_request_role(author, interaction.guild, role)
+            await increment_request_count(interaction, bot, request_channel_id, message_id)
     return
 
-async def remove_request_pokemon_handle(bot, ctx, tier, pokemon_name):
-    author = ctx.author
+async def remove_request_pokemon_handle(bot, interaction: discord.Interaction, tier, pokemon_name):
+    author = interaction.user
     if tier.lower() == "mega" and not pokemon_name.startswith("Mega", 0, 5):
         pokemon_name = "Mega " + pokemon_name
     if not discord.utils.get(author.roles, name=pokemon_name):
         return
-    _, request_channel_id, message_id, role_id = await check_if_request_message_exists(bot, pokemon_name, ctx.guild.id)
+    _, request_channel_id, message_id, role_id = await check_if_request_message_exists(bot, pokemon_name, interaction.guild.id)
     #if not discord.utils.get(author.roles, id=role_id):
     #    return
     try:
         await author.remove_roles(discord.Object(role_id))
     except discord.DiscordException as error:
-        print("[!][{}] An error occurred removing a role from a user. [{}]".format(ctx.guild.name, error))
-    await decrement_request_count(ctx, bot, request_channel_id, message_id)
+        print("[!][{}] An error occurred removing a role from a user. [{}]".format(interaction.guild.name, error))
+    await decrement_request_count(interaction, bot, request_channel_id, message_id)
 
+class MockContext:
+    def __init__(self, guild, channel, user):
+        self.guild = guild
+        self.channel = channel
+        self.user = user
 
+# kept as ctx because it handles emoji reactions which the new discord.Interactions cant do
 async def add_request_role_to_user(bot, ctx, message):
     is_mega, pokemon_name = H.get_pokemon_name_from_raid(message)
 
-    ctx.guild = bot.get_guild(ctx.guild_id)
-    ctx.channel = ctx.guild.get_channel(ctx.channel_id)
-    ctx.author = ctx.guild.get_member(ctx.user_id)
-    if not ctx.author:
+    guild = bot.get_guild(ctx.guild_id)
+    channel = guild.get_channel(ctx.channel_id)
+    user = guild.get_member(ctx.user_id)
+
+    if not user:
         try:
-            ctx.author = ctx.guild.fetch_member(ctx.user_id)
+            user = await guild.fetch_member(ctx.user_id)
         except discord.DiscordException as error:
-            print("[!] An error occurred fetching a member from the guild [{}]".format(ctx.guild))
+            print("[!] An error occurred fetching a member from the guild [{}]".format(guild))
 
     tier = pokemon_name
     if is_mega:
         tier = "Mega"
 
-    await request_pokemon_handle(bot, ctx, tier, pokemon_name)
+    mock_interaction = MockContext(guild, channel, user)
+    await request_pokemon_handle(bot, mock_interaction, tier, pokemon_name)
 
+# kept as ctx because it handles emoji reactions which the new discord.Interactions cant do
 async def remove_request_role_from_user(bot, ctx, message):
     is_mega, pokemon_name = H.get_pokemon_name_from_raid(message)
 
-    ctx.guild = bot.get_guild(ctx.guild_id)
-    ctx.channel = ctx.guild.get_channel(ctx.channel_id)
-    ctx.author = ctx.guild.get_member(ctx.user_id)
-    if not ctx.author:
+    guild = bot.get_guild(ctx.guild_id)
+    channel = guild.get_channel(ctx.channel_id)
+    user = guild.get_member(ctx.user_id)
+
+    if not user:
         try:
-            ctx.author = ctx.guild.fetch_member(ctx.user_id)
+            user = await guild.fetch_member(ctx.user_id)
         except discord.DiscordException as error:
-            print("[!] An error occurred fetching a member from the guild [{}]".format(ctx.guild))
+            print("[!] An error occurred fetching a member from the guild [{}]".format(guild))
 
     tier = pokemon_name
     if is_mega:
         tier = "Mega"
 
-    await remove_request_pokemon_handle(bot, ctx, tier, pokemon_name)
+    mock_interaction = MockContext(guild, channel, user)
+    await remove_request_pokemon_handle(bot, mock_interaction, tier, pokemon_name)

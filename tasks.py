@@ -45,6 +45,21 @@ async def startup_process(bot):
             print(f"[!] An error occurred while loading COG [{cog}]: [{error}]")
             print("[!] An error occurred during cog initialization. Exiting.")
             sys.exit()
+    # syncing commands globally
+    if bot.should_sync:
+            print("[i]Syncing application commands globally...")
+            await bot.tree.sync()
+            print("[i]Global Commands synced.")
+            """ 
+                syncs to the specified test discord server
+                since syncing commands globally will take a while 
+            """
+            if not bot.live and bot.test_server is not None:
+                print(f"[i]Syncing to Test Server...")
+                bot.tree.copy_global_to(guild=bot.test_server)
+                print(f"[i]Commands Synced to test server")
+            else:
+                print(f"[!] Please fill in the test server's ID when running the bot in debug mode")
 
 
 async def status_update_loop(bot):
