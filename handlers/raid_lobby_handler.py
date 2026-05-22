@@ -115,7 +115,7 @@ async def log_message_in_raid_lobby_channel(bot, message, lobby_channel, lobby_d
     log_channel = bot.get_channel(int(log_channel_id))
 
     new_embed = discord.Embed(title="Logged Message", url=message.jump_url, description=message.content)
-    new_embed.set_author(name=author.name, icon_url=author.avatar_url)
+    new_embed.set_author(name=author.name, icon_url=author.avatar.url)
     new_embed.set_footer(text=f"User ID: {author.id} | Time: {datetime.utcnow()} UTC")
     host_user_id = lobby_data.get("host_user_id")
     guild = lobby_channel.guild

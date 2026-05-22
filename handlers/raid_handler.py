@@ -54,7 +54,7 @@ async def get_raid_count(bot, interaction: discord.Interaction, should_print):
     if should_print:
         msg = "Total raids sent within this server [`{}`]".format(num)
         try:
-            await interaction.response.send_message(msg)
+            await interaction.followup.send(msg)
         except discord.DiscordException as error:
             print("[!] Error sending raid count to channel. [{}]".format(error))
     else:
@@ -197,7 +197,7 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
     # TODO send a interaction message if the raid channel is invalid 
     if not await check_if_valid_raid_channel(bot, interaction.channel.id):
         print(f"[i] Please enter the command in the valid raid channel")
-        interaction.followup.send(f"Please enter the command in the correct raid channel")
+        await interaction.followup.send(f"Please enter the command in the correct raid channel")
         return
 
     if await check_if_in_raid(interaction, bot, interaction.user.id):
@@ -287,7 +287,7 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
     else:
         response += "---------\n"
         response += "*Here's the command you entered below. Suggestions were added. Check that it is correct and try again.*\n"
-        await interaction.user.send(response)
+        #await interaction.followup.send(response)
         correction_suggestion = f"/raid {suggestion}"
-        await interaction.user.send(correction_suggestion)
+        await interaction.followup.send(response + "\n" + correction_suggestion)
         print(f'[!][{interaction.guild}][{interaction.user.name}] Raid failed to post due to invalid arguments.')

@@ -20,11 +20,15 @@ async def startup_process(bot):
     """
     
     """Startup process. Linear process."""
-    pool = await asyncpg.create_pool(database=os.getenv('DATABASE'),
+    try:
+        pool = await asyncpg.create_pool(database=os.getenv('DATABASE'),
                                      port=os.getenv('PORT'),
                                      host=os.getenv('HOST'),
                                      user=os.getenv('DB_USER'),
                                      password=os.getenv('PASSWORD'))
+    except:
+        print(f"[!] Unable to connect to database please ensure the database is running and the credentials are valid")
+        sys.exit()
     bot.database = database.Database(pool)
     await initialize_database()
     await SH.set_up_guild_raid_counters(bot)

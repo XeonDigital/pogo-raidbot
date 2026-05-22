@@ -183,6 +183,7 @@ def validate_pokemon(pokemon_name, tier):
                 dex_num = number
                 is_valid = True
                 break
+    #TODO we should not be iterating the whole list just to find the pokemon, instead we should 
     else:
         for number, name in NATIONAL_DEX.items():
             if pokemon_name == name.lower():

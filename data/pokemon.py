@@ -896,6 +896,7 @@ NATIONAL_DEX =\
   "891_00":"Kubfu",
   "892_00":"Urshifu",
   "893_00":"Zarude",
+  "787_00":"Tapu-Bulu",
 }
 
 MEGA_DEX =\
@@ -946,7 +947,7 @@ MEGA_DEX =\
   "428_51":"Lopunny",
   "475_51":"Gallade",
   "531_51":"Audino",
-  "719_51":"Diancie"
+  "719_51":"Diancie",
 }
 
 ALOLAN_DEX =\
