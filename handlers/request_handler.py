@@ -302,6 +302,7 @@ async def request_pokemon_handle(bot, interaction: discord.Interaction, tier, po
             return
         correction_suggestion = f"/request {suggestion}"
         await interaction.user.send(correction_suggestion)
+        await interaction.followup.send("Check DMs")
     else:
         pokemon_name = pokemon_name.title()
         temp = pokemon_name.replace("-Altered", "")
