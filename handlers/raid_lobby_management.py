@@ -29,14 +29,14 @@ async def notify_user_cannot_alter_lobby_while_in_raid(interaction):
     except discord.DiscordException:
         pass
 
-async def extend_duration_of_lobby(bot, user):
+async def extend_duration_of_lobby(bot, user, interaction):
     lobby_data = await RLH.get_lobby_data_by_user_id(bot, user.id)
     if not lobby_data:
         return
     
     raid_data = await RH.check_if_in_raid(None, bot, user.id)
     if raid_data and raid_data.get("message_id") == lobby_data.get("raid_message_id"):
-        await notify_user_cannot_alter_lobby_while_in_raid(user)
+        await notify_user_cannot_alter_lobby_while_in_raid(interaction)
         return
         
     lobby_delete_time = lobby_data.get("delete_at")

@@ -73,7 +73,7 @@ class GeneralCommands(commands.Cog):
     @app_commands.command(name="extend", description="Allows a user to manually extend the time of their lobby.")
     async def extend(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        await RLM.extend_duration_of_lobby(self.__bot, interaction.user)
+        await RLM.extend_duration_of_lobby(self.__bot, interaction.user, interaction)
         try:
             await interaction.followup.send("Lobby extend command processed.", ephemeral=True)
         except discord.DiscordException:
