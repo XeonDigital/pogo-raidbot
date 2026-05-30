@@ -384,10 +384,10 @@ QUERY_APPLICATION_DATA_FOR_USER = """
 async def get_applicant_data_for_user(bot, user_id):
     return await bot.database.fetchrow(QUERY_APPLICATION_DATA_FOR_USER, user_id)
 
-async def handle_application_to_raid(bot, interaction: discord.Interaction, message, channel):
+async def handle_application_to_raid(bot, payload: discord.Interaction, message, channel):
     guild = message.guild
-    member = guild.get_member(interaction.user.id)
-    result = await get_applicant_data_for_user(bot, interaction.user.id)
+    member = guild.get_member(payload.member.id)
+    result = await get_applicant_data_for_user(bot, payload.member.id)
 
     if result:
         applied_to_raid_id = result.get("raid_message_id")
@@ -402,7 +402,7 @@ async def handle_application_to_raid(bot, interaction: discord.Interaction, mess
         else:
             await update_application_for_user(bot, member, applied_to_raid_id)
     else:
-        await handle_new_application(interaction, bot, member, message, channel)
+        await handle_new_application(payload, bot, member, message, channel)
 
 QUERY_APPLICANT_BY_MESSAGE_ID = """
     SELECT * FROM raid_application_user_map WHERE (activity_check_message_id = $1);

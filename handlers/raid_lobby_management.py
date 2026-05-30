@@ -22,10 +22,10 @@ async def notify_lobby_members_of_host_deleting_lobby(lobby):
             except discord.DiscordException:
                 pass
 
-async def notify_user_cannot_alter_lobby_while_in_raid(user):
+async def notify_user_cannot_alter_lobby_while_in_raid(interaction):
     embed = discord.Embed(title="Error", description="You cannot modify your lobby while the raid listing still exists. Please remove the listing and try again.")
     try:
-        await user.send(embed=embed)
+        await interaction.followup.send(embed=embed)
     except discord.DiscordException:
         pass
 
