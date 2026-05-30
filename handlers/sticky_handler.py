@@ -88,7 +88,7 @@ async def edit_to_raids_remaining_placeholder(message):
     embed = await format_sticky_embed(title, description)
     await message.edit(embed=embed)
 
-async def toggle_raid_sticky(bot, ctx, channel_id, guild_id):
+async def toggle_raid_sticky(bot, interaction: discord.Interaction, channel_id, guild_id):
     from handlers.raid_handler import check_if_valid_raid_channel
     if not await check_if_valid_raid_channel(bot, channel_id):
         return

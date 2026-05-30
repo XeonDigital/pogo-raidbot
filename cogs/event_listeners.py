@@ -13,15 +13,21 @@ class Listeners(commands.Cog):
         """Built in event"""
         print(f'[i] Logged in as {self.__bot.user.name} \n')
 
-    @commands.Cog.listener()
-    async def on_raw_reaction_add(self, ctx):
-        """Built in event"""
-        await EH.raw_reaction_add_handle(ctx, self.__bot)
+        try:
+            synced = await self.__bot.tree.sync()
+            print(f"Synced {len(synced)} commands.")
+        except Exception as error:
+            print(f"Failed to sync commands: {error}")
 
     @commands.Cog.listener()
-    async def on_raw_message_delete(self, ctx):
+    async def on_raw_reaction_add(self, payload):
         """Built in event"""
-        await EH.raw_message_delete_handle(ctx, self.__bot)
+        await EH.raw_reaction_add_handle(payload, self.__bot)
+
+    @commands.Cog.listener()
+    async def on_raw_message_delete(self, payload):
+        """Built in event"""
+        await EH.raw_message_delete_handle(payload, self.__bot)
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
@@ -34,7 +40,7 @@ class Listeners(commands.Cog):
         try:
             await EH.on_message_handle(message, self.__bot)
         except Exception as error:
-            print(f'[!] An exception occurred during message handling. [{error}]')
+            print(f'An exception occurred during message handling. [{error}]')
 
 
 async def setup(bot):

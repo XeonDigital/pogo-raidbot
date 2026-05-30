@@ -49,14 +49,14 @@ def build_image_link_github(num):
     return "http://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Pokemon%20-%20256x256/pokemon_icon_{}.png".format(str(num))
 
 
-def validate_and_format_message(ctx,
+def validate_and_format_message(interaction,
                                 tier,
                                 pokemon_name,
                                 weather,
                                 invite_slots):
     # Format raid post
     raid_post_valid = True
-    author_dm = H.guild_member_dm(ctx.guild.name, "")
+    author_dm = H.guild_member_dm(interaction.guild.name, "")
     corrected_argument_guesses = {}
     """----------------------------------------------------------------"""
     is_valid, response = validate_tier(tier)
@@ -183,6 +183,7 @@ def validate_pokemon(pokemon_name, tier):
                 dex_num = number
                 is_valid = True
                 break
+    #TODO we should not be iterating the whole list just to find the pokemon, instead we should 
     else:
         for number, name in NATIONAL_DEX.items():
             if pokemon_name == name.lower():

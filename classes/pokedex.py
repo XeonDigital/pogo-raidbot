@@ -70,7 +70,7 @@ class Pokedex():
         True if the user-provided boss name matches current rotation.
         Shadow raids accept any spelling that contains ``shadow``; see ``normalize_shadow_pokemon_name_for_lookup``.
         """
-        normalized_name = self.normalize_raid_boss_name(name)
+        normalized_name = self.normalize_raid_boss_name(name).replace("-", " ")
         if not normalized_name:
             return False
         accepted = {self.normalize_raid_boss_name(n) for n in self.current_raid_bosses()}

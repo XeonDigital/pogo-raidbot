@@ -39,13 +39,21 @@ BOT = bot.Bot(COMMAND_PREFIX, description=DESCRIPTION, activity=GAME, intents=in
 
 BOT.pool = None
 BOT.categories_allowed = True
-BOT.live = False
+try:
+    BOT.test_server = discord.Object(id=int(os.getenv('TEST_SERVER_ID')))
+except ValueError as e:
+    print(f"Please enter a valid ID for TEST_SERVER_ID")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("-l", action="store_true")
+    parser.add_argument("--sync", action="store_true", help="Sync application commands globally")
     args = parser.parse_args()
-    if args.l:
+    
+    BOT.should_sync = args.sync
+
+    if "debugpy" not in sys.modules:
         print("[!] Running bot live.")
         BOT.live=True
         BOT.run(os.getenv("LIVE_TOKEN"))

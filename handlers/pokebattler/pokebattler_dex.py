@@ -20,7 +20,7 @@ def handle_get_pokemon_by_name(bot, tier="None", name="None"):
         if entry_name == name:
             return entry
 
-async def retrieve_pokedex_data(bot, ctx, arg1="None", arg2="None"):
+async def retrieve_pokedex_data(bot, interaction: discord.Interaction, arg1="None", arg2="None"):
     print(arg1, arg2)
     result = None
     if arg1 == "Mega" and not arg2 == "None":

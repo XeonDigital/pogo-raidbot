@@ -30,24 +30,13 @@ async def on_message_handle(message, bot):
     if message.channel.permissions_for(message.author).manage_messages:
         return False
     elif raid_channel or request_channel:
-        await message.delete()
-
-    if message.content.startswith(bot.command_prefix, 0, 1):
-        for command in bot.commands:
-            if message.content.startswith("-{}".format(command.name), 0, len(command.name) + 1):
-                #await bot.delete_ignore_error(message)
-                return
-            for alias in command.aliases:
-                if message.content.startswith("-{}".format(alias), 0, len(alias) + 1):
-                    #await bot.delete_ignore_error(message)
-                    return
+        try:
+            await message.delete()
+        except discord.DiscordException:
+            pass
 
     content = message.content
 
-    await message.author.send(H.guild_member_dm(message.guild.name, "This is a curated channel. Read the guide and use the correct command for this channel."))
+    await message.author.send(H.guild_member_dm(message.guild.name, "This is a curated channel. Read the guide and use the correct interaction/slash-command for this channel."))
 
-    #try:
     print("[*][{}][{}] Invalid message deleted [{}]".format(message.guild.name, message.author.name, content))
-    #await bot.delete_ignore_error(message)
-    #except discord.NotFound:
-    #    pass
