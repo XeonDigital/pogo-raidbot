@@ -276,7 +276,7 @@ async def check_if_user_already_assigned_role(member, role_id):
         return True
     return False
 
-async def request_pokemon_handle(bot, interaction: discord.Interaction, tier, pokemon_name):
+async def request_pokemon_handle(bot, interaction, tier, pokemon_name):
     """Sets up a request and gives you a role for that Pokemon"""
     author = interaction.user
     if not tier or (tier.lower() == "mega" and not pokemon_name):
@@ -302,7 +302,6 @@ async def request_pokemon_handle(bot, interaction: discord.Interaction, tier, po
             return
         correction_suggestion = f"/request {suggestion}"
         await interaction.user.send(correction_suggestion)
-        await interaction.followup.send("Check DMs")
     else:
         pokemon_name = pokemon_name.title()
         temp = pokemon_name.replace("-Altered", "")
@@ -310,12 +309,10 @@ async def request_pokemon_handle(bot, interaction: discord.Interaction, tier, po
         if not bot.dex.is_current_raid_boss(temp):
             embed = discord.Embed(title="Error", description=f"That pokemon ({pokemon_name}) is not currently in rotation. If you believe this is an error, please contact Modmail or someone in the Coding Team.")
             await bot.send_ignore_error(interaction.user, " ", embed=embed)
-            await interaction.followup.send("Check DMs")
             return
         does_exist, request_channel_id, message_id, role_id = await check_if_request_message_exists(bot, pokemon_name, guild_id)
         if not does_exist:
             await set_up_request_role_and_message(bot, interaction, pokemon_name, dex_num)
-            await interaction.followup.send("Check DMs")
             return
 
         if not await check_if_user_already_assigned_role(author, role_id):

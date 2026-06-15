@@ -22,21 +22,21 @@ async def notify_lobby_members_of_host_deleting_lobby(lobby):
             except discord.DiscordException:
                 pass
 
-async def notify_user_cannot_alter_lobby_while_in_raid(interaction):
+async def notify_user_cannot_alter_lobby_while_in_raid(user):
     embed = discord.Embed(title="Error", description="You cannot modify your lobby while the raid listing still exists. Please remove the listing and try again.")
     try:
-        await interaction.followup.send(embed=embed)
+        await user.send(embed=embed)
     except discord.DiscordException:
         pass
 
-async def extend_duration_of_lobby(bot, user, interaction):
+async def extend_duration_of_lobby(bot, user):
     lobby_data = await RLH.get_lobby_data_by_user_id(bot, user.id)
     if not lobby_data:
         return
     
     raid_data = await RH.check_if_in_raid(None, bot, user.id)
     if raid_data and raid_data.get("message_id") == lobby_data.get("raid_message_id"):
-        await notify_user_cannot_alter_lobby_while_in_raid(interaction)
+        await notify_user_cannot_alter_lobby_while_in_raid(user)
         return
         
     lobby_delete_time = lobby_data.get("delete_at")

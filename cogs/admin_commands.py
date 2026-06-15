@@ -45,7 +45,6 @@ class AdminCommands(commands.Cog):
     async def a_close(self, interaction: discord.Interaction, channel_id: str = ""):
         await interaction.response.defer(ephemeral=True)
         await RLH.handle_admin_close_lobby(interaction, self.__bot, channel_id)
-        await interaction.followup.send("Flagged raid lobby for closure.", ephemeral=True)
 
 async def setup(bot):
     """Default setup function for file"""

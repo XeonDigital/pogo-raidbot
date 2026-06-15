@@ -24,6 +24,7 @@ class MemberCommands(commands.Cog):
         
         await interaction.response.defer(ephemeral=True)
         await REQH.request_pokemon_handle(self.__bot, interaction, tier, pokemon_name)
+        await interaction.followup.send("Check DMs")
 
     @app_commands.command(name="raid_count", description="Show total raids hosted in this server")
     @app_commands.guild_only()
