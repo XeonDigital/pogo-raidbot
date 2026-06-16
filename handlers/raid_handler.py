@@ -194,7 +194,6 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
     #     await interaction.message.delete()
     # except:
     #     pass
-    # TODO send a interaction message if the raid channel is invalid 
     if not await check_if_valid_raid_channel(bot, interaction.channel.id):
         print(f"[i] Please enter the command in the valid raid channel")
         await interaction.followup.send(f"Please enter the command in the correct raid channel")
@@ -230,10 +229,11 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
             embed = discord.Embed(title="Error", description=f"That pokemon ({temp}) is not currently in rotation. If you believe this is an error, please contact TheStaplergun#6920.")
             await bot.send_ignore_error(interaction.user, " ", embed=embed)
             return
-        remove_after_seconds = 900
+        remove_after_seconds = 90
         channel_message_body = f'Raid hosted by {interaction.user.mention}\n'
         _, _, _, role_id = await REQH.check_if_request_message_exists(bot, response.title, interaction.guild.id)
-        message_to_dm = "Your raid has been successfully listed.\nIt will automatically be deleted at the time given in `Time to Expire` or just 10 minutes.\nPress the trash can to remove it at any time."
+        time_to_delete = datetime.now() + timedelta(seconds=remove_after_seconds)
+        message_to_dm = f"Your raid has been successfully listed.\nIt will automatically be deleted in just 10 minutes or at <t:{int(time_to_delete.timestamp())}:t>.\nPress the trash can to remove it at any time."
         try:
             await interaction.user.send(H.guild_member_dm(interaction.guild.name, message_to_dm))
         except discord.Forbidden:
@@ -259,7 +259,6 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
         except discord.DiscordException as error:
             print(f'[*][{interaction.guild.name}][{interaction.user}] An error occurred listing a raid. [{error}]')
             return
-        time_to_delete = datetime.now() + timedelta(seconds=remove_after_seconds)
         await add_raid_to_table(interaction, bot, message.id, interaction.guild.id, message.channel.id, interaction.user.id, time_to_delete)
 
         await message.add_reaction("🗑️")

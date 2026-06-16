@@ -679,26 +679,29 @@ async def delete_lobby(bot, lobby):
     await asyncio.gather(*tasks)
 
 async def handle_admin_close_lobby(interaction: discord.Interaction, bot, lobby_id):
+    #if the lobby didnt get passed as an argument assume that the interaction channel is the lobby id
     if not lobby_id:
         lobby_id = interaction.channel.id
     lobby_data = await get_lobby_data_by_lobby_id(bot, lobby_id)
-
+    #checks if the lobby data exists and if the lobby id is the same as the interaction lobby id
     if lobby_data and lobby_id == interaction.channel.id:
         lobby = interaction.channel
     else:
         lobby = await bot.retrieve_channel(lobby_id)
-
+    #Permission checks
     if lobby and not lobby.permissions_for(interaction.user).manage_channels:
         embed = discord.Embed(title="", description="You do not have permission to manage that lobby.")
         await interaction.followup.send(embed=embed, ephemeral=True)
         return False
-
+    #if the lobby_data exists and if the lobby id is is not the same as the current lobby id
     if lobby_data and lobby_data.get("lobby_channel_id") != lobby_id:
         await interaction.followup.send("The given channel id is not a valid lobby.", ephemeral=True)
+        return
 
-    if not lobby:
+    if not lobby_data:
         try:
             await interaction.followup.send("The given channel id is not a valid lobby.")
+            return
         except discord.DiscordException:
             return
 
