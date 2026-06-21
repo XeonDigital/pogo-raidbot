@@ -240,10 +240,9 @@ async def update_delete_time_with_given_time(bot, new_time, raid_id):
 async def alter_deletion_time_for_raid_lobby(bot, raid_id):
     current_time = datetime.now()
     lobby_data = await get_lobby_data_by_raid_id(bot, raid_id)
-
+    #if lobby data is empty do nothing
     if not lobby_data:
         return
-
     lobby_channel_id = lobby_data.get("lobby_channel_id")
     lobby = bot.get_channel(int(lobby_channel_id))
     if not lobby:
