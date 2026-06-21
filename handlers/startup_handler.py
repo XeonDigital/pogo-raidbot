@@ -125,16 +125,11 @@ async def start_lobby_removal_loop(bot):
     while True:
         # Process lobbies until no lobbies remain before going to outer loop.
         while True:
-            #gets the lobby data
             lobby_data = await RLH.get_next_lobby_to_remove(bot)
-            #exits the loop if there is none
             if not lobby_data:
                 break
-            #gets the current date
             cur_time = datetime.utcnow()
-            #gets the deletion time
             deletion_time = lobby_data.get("delete_at")
-            #subtracts the deletion time to the current time
             deletion_time_dif = deletion_time - cur_time
             if cur_time < deletion_time:
                 if deletion_time_dif.total_seconds() > 1:
