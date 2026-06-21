@@ -1,5 +1,5 @@
 """Raid SQL statements and database interaction functions"""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import asyncpg
 import discord
@@ -16,7 +16,7 @@ VALUES($1, $2, $3, $4, $5, $6)
 """
 async def add_raid_to_table(interaction: discord.Interaction, bot, message_id, guild_id, channel_id, user_id, time_to_remove):
     """Add a raid to the database with all the given data points."""
-    cur_time = datetime.now()
+    cur_time = datetime.utcnow()
 
     await bot.database.execute(NEW_RAID_INSERT,
                                  int(message_id),
@@ -232,7 +232,7 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
         remove_after_seconds = 90
         channel_message_body = f'Raid hosted by {interaction.user.mention}\n'
         _, _, _, role_id = await REQH.check_if_request_message_exists(bot, response.title, interaction.guild.id)
-        time_to_delete = datetime.now() + timedelta(seconds=remove_after_seconds)
+        time_to_delete = datetime.utcnow() + timedelta(seconds=remove_after_seconds)
         message_to_dm = f"Your raid has been successfully listed.\nIt will automatically be deleted in just 10 minutes or at <t:{int(time_to_delete.timestamp())}:t>.\nPress the trash can to remove it at any time."
         try:
             await interaction.user.send(H.guild_member_dm(interaction.guild.name, message_to_dm))

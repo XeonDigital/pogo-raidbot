@@ -128,7 +128,7 @@ VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 """
 async def add_lobby_to_table(bot, lobby_channel_id, host_user_id, raid_id, guild_id, delete_at, invite_slots):
     """Add a raid to the database with all the given data points."""
-    cur_time = datetime.now()
+    cur_time = datetime.utcnow()
     await bot.database.execute(NEW_LOBBY_INSERT,
                                int(lobby_channel_id),
                                int(host_user_id),
@@ -238,7 +238,7 @@ async def update_delete_time_with_given_time(bot, new_time, raid_id):
                                        int(raid_id))
 
 async def alter_deletion_time_for_raid_lobby(bot, raid_id):
-    current_time = datetime.now()
+    current_time = datetime.utcnow()
     lobby_data = await get_lobby_data_by_raid_id(bot, raid_id)
     #if lobby data is empty do nothing
     if not lobby_data:
@@ -346,7 +346,7 @@ async def insert_new_application(bot, user_id, raid_message_id, guild_id, is_req
 
 async def calculate_speed_bonus(message, listing_duration):
     creation_time = message.created_at
-    time_difference = (datetime.now() - creation_time)
+    time_difference = (datetime.utcnow() - creation_time)
     return 100 - (time_difference.total_seconds() / listing_duration * 100) # Calculated by quickness of application over total life of raid listing.
 
 async def handle_new_application(interaction: discord.Interaction, bot, member, message, channel):
@@ -439,7 +439,7 @@ async def calculate_weight(bot, is_requesting, speed_bonus_weight, member_id):
     persistence_weight = persistence_weight+(5*persistence_weight**2)
     if result:
         last_participation_time = result.get("last_participation_time")
-        current_time = datetime.now()
+        current_time = datetime.utcnow()
         time_difference = current_time - last_participation_time
         if time_difference.total_seconds() < 3600:
             recent_participation_weight = (time_difference.total_seconds()/3600) * 100
@@ -540,7 +540,7 @@ UDPATE_RECENT_PARTICIPATION = """
 async def set_recent_participation(bot, user_id):
     async with bot.database.connect() as c:
         await c.execute(DELETE_RECENT_PARTICIPATION_RECORD, int(user_id))
-        await c.execute(UDPATE_RECENT_PARTICIPATION, int(user_id), datetime.now())
+        await c.execute(UDPATE_RECENT_PARTICIPATION, int(user_id), datetime.utcnow())
 
 async def check_if_lobby_full(bot, lobby_id):
     lobby_data = await bot.database.fetchrow(GET_LOBBY_BY_LOBBY_ID, int(lobby_id))
