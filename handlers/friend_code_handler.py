@@ -39,7 +39,7 @@ async def add_friend_code_to_table(bot, user_id, friend_code):
         await c.execute(UPDATE_FC_FOR_USER if result else NEW_FC_INSERT,
                         int(user_id),
                         str(friend_code),
-                        datetime.utcnow())
+                        datetime.now(tz=timezone.utc))
 
     return UPDATED if result else INSERTED
 
@@ -65,11 +65,11 @@ async def get_friend_code(bot, user_id, host=False):
         if result:
             # This is a bit strange, but it's a step I can perform a combined query all together.
             await c.execute(UPDATE_LAST_RECALLED_AND_INCREMENT_HOST_COUNT if host else UPDATE_LAST_RECALLED_TIME,
-                            datetime.utcnow(),
+                            datetime.now(tz=timezone.utc),
                             int(user_id))
         else:
             await c.execute(INSERT_BLANK_RECORD,
-                            datetime.utcnow(),
+                            datetime.now(tz=timezone.utc),
                             int(user_id),
                             1 if host else 0)
     return result.get("friend_code") if result and result.get("friend_code") else "To set your friend code, type `/setfc 1234 5678 9012` in any lobby or appropriate channel.", True if result else False
@@ -140,7 +140,7 @@ async def add_trainer_level_to_table(bot, user_id, level):
         await c.execute(UPDATE_LEVEL_FOR_USER if result else NEW_LEVEL_INSERT,
                         int(user_id),
                         int(level),
-                        datetime.utcnow())
+                        datetime.now(tz=timezone.utc))
 
     return UPDATED if result else INSERTED
 
@@ -196,7 +196,7 @@ async def add_trainer_name_to_table(bot, user_id, trainer_name):
         await c.execute(UPDATE_NAME_FOR_USER if result else NEW_NAME_INSERT,
                         int(user_id),
                         str(trainer_name),
-                        datetime.utcnow())
+                        datetime.now(tz=timezone.utc))
 
     return UPDATED if result else INSERTED
 

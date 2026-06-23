@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import asyncpg
 import discord
@@ -116,7 +116,7 @@ async def log_message_in_raid_lobby_channel(bot, message, lobby_channel, lobby_d
 
     new_embed = discord.Embed(title="Logged Message", url=message.jump_url, description=message.content)
     new_embed.set_author(name=author.name, icon_url=author.avatar.url)
-    new_embed.set_footer(text=f"User ID: {author.id} | Time: {datetime.utcnow()} UTC")
+    new_embed.set_footer(text=f"User ID: {author.id} | Time: {datetime.now(tz=timezone.utc)} UTC")
     host_user_id = lobby_data.get("host_user_id")
     guild = lobby_channel.guild
     host_member = discord.utils.get(guild.members, id=host_user_id)
@@ -128,7 +128,7 @@ VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 """
 async def add_lobby_to_table(bot, lobby_channel_id, host_user_id, raid_id, guild_id, delete_at, invite_slots):
     """Add a raid to the database with all the given data points."""
-    cur_time = datetime.utcnow()
+    cur_time = datetime.now(tz=timezone.utc)
     await bot.database.execute(NEW_LOBBY_INSERT,
                                int(lobby_channel_id),
                                int(host_user_id),
@@ -238,7 +238,7 @@ async def update_delete_time_with_given_time(bot, new_time, raid_id):
                                        int(raid_id))
 
 async def alter_deletion_time_for_raid_lobby(bot, raid_id):
-    current_time = datetime.utcnow()
+    current_time = datetime.now(tz=timezone.utc)
     lobby_data = await get_lobby_data_by_raid_id(bot, raid_id)
     #if lobby data is empty do nothing
     if not lobby_data:
@@ -346,7 +346,7 @@ async def insert_new_application(bot, user_id, raid_message_id, guild_id, is_req
 
 async def calculate_speed_bonus(message, listing_duration):
     creation_time = message.created_at
-    time_difference = (datetime.utcnow() - creation_time)
+    time_difference = (datetime.now(tz=timezone.utc) - creation_time)
     return 100 - (time_difference.total_seconds() / listing_duration * 100) # Calculated by quickness of application over total life of raid listing.
 
 async def handle_new_application(interaction: discord.Interaction, bot, member, message, channel):
@@ -371,6 +371,7 @@ async def handle_new_application(interaction: discord.Interaction, bot, member, 
         return False
     role = discord.utils.get(member.roles, name=pokemon_name)
     time_to_end = raid_data.get("time_to_remove")
+    
     listing_duration = time_to_end - message.created_at
     speed_bonus = await calculate_speed_bonus(message, listing_duration.total_seconds())
     app_weight = await calculate_weight(bot, True if role else False, speed_bonus, member.id)
@@ -439,7 +440,7 @@ async def calculate_weight(bot, is_requesting, speed_bonus_weight, member_id):
     persistence_weight = persistence_weight+(5*persistence_weight**2)
     if result:
         last_participation_time = result.get("last_participation_time")
-        current_time = datetime.utcnow()
+        current_time = datetime.now(tz=timezone.utc)
         time_difference = current_time - last_participation_time
         if time_difference.total_seconds() < 3600:
             recent_participation_weight = (time_difference.total_seconds()/3600) * 100
@@ -540,7 +541,7 @@ UDPATE_RECENT_PARTICIPATION = """
 async def set_recent_participation(bot, user_id):
     async with bot.database.connect() as c:
         await c.execute(DELETE_RECENT_PARTICIPATION_RECORD, int(user_id))
-        await c.execute(UDPATE_RECENT_PARTICIPATION, int(user_id), datetime.utcnow())
+        await c.execute(UDPATE_RECENT_PARTICIPATION, int(user_id), datetime.now(tz=timezone.utc))
 
 async def check_if_lobby_full(bot, lobby_id):
     lobby_data = await bot.database.fetchrow(GET_LOBBY_BY_LOBBY_ID, int(lobby_id))

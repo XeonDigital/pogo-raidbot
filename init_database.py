@@ -9,11 +9,11 @@ load_dotenv()
 RAIDS = '''
 CREATE TABLE IF NOT EXISTS raids(
   message_id BIGINT PRIMARY KEY,
-  time_registered TIMESTAMP NOT NULL,
+  time_registered TIMESTAMPTZ NOT NULL,
   guild_id BIGINT NOT NULL,
   channel_id BIGINT NOT NULL,
   user_id BIGINT NOT NULL,
-  time_to_remove TIMESTAMP NOT NULL
+  time_to_remove TIMESTAMPTZ NOT NULL
 );
 '''
 
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS raid_lobby_user_map (
   host_user_id BIGINT NOT NULL,
   raid_message_id BIGINT NOT NULL,
   guild_id BIGINT NOT NULL,
-  posted_at TIMESTAMP NOT NULL,
-  delete_at TIMESTAMP NOT NULL,
+  posted_at TIMESTAMPTZ NOT NULL,
+  delete_at TIMESTAMPTZ NOT NULL,
   user_count INT NOT NULL,
   user_limit INT NOT NULL,
   applied_users INT NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS raid_lobby_user_map (
 TRAINER_DATA = '''
 CREATE TABLE IF NOT EXISTS trainer_data(
   user_id BIGINT PRIMARY KEY,
-  last_time_recalled TIMESTAMP NOT NULL,
+  last_time_recalled TIMESTAMPTZ NOT NULL,
   raids_hosted INT DEFAULT 0,
   friend_code CHAR(12),
   level INT,
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS valid_request_channels(
 RECENT_PARTICIPATION_TABLE = '''
 CREATE TABLE IF NOT EXISTS raid_participation_table(
   user_id BIGINT PRIMARY KEY,
-  last_participation_time TIMESTAMP NOT NULL
+  last_participation_time TIMESTAMPTZ NOT NULL
 );
 '''
 
