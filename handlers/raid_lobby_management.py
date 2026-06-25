@@ -103,7 +103,8 @@ async def host_manual_remove_lobby(bot, user):
         return
 
     raid_data = await RH.check_if_in_raid(None, bot, user.id)
-    if raid_data and raid_data.get("message_id") == lobby_data.get("raid_message_id"):
+    # Checks if the raid data exits and checks if the message id is the same as the raid message id?
+    if raid_data and raid_data.get("message_id") == lobby_data.get("raid_message_id") :
         await notify_user_cannot_alter_lobby_while_in_raid(user)
         return
         

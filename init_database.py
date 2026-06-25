@@ -5,7 +5,7 @@ from os import environ
 from dotenv import load_dotenv
 
 load_dotenv()
-
+# For current ongoing raids
 RAIDS = '''
 CREATE TABLE IF NOT EXISTS raids(
   message_id BIGINT PRIMARY KEY,
@@ -16,13 +16,14 @@ CREATE TABLE IF NOT EXISTS raids(
   time_to_remove TIMESTAMPTZ NOT NULL
 );
 '''
-
+# For counting the amount of raids hosted
 RAID_COUNTERS = '''
 CREATE TABLE IF NOT EXISTS guild_raid_counters(
   guild_id BIGINT PRIMARY KEY,
   raid_counter INT DEFAULT 0
 );
 '''
+# For logging the lobby data
 RAID_LOBBY_USER_MAP = '''
 DROP TABLE IF EXISTS raid_lobby_user_map;
 CREATE TABLE IF NOT EXISTS raid_lobby_user_map (
@@ -51,7 +52,7 @@ CREATE TABLE IF NOT EXISTS trainer_data(
   raids_participated_in INT DEFAULT 0
 );
 '''
-
+# For trainers who are in the queue for the lobby
 RAID_APPLICATIONS = '''
 CREATE TABLE IF NOT EXISTS raid_application_user_map(
   user_id BIGINT PRIMARY KEY,
@@ -64,7 +65,7 @@ CREATE TABLE IF NOT EXISTS raid_application_user_map(
   activity_check_message_id BIGINT
 );
 '''
-
+# For setting the logging for each server
 RAID_LOBBY_CATEGORY = '''
 CREATE TABLE IF NOT EXISTS raid_lobby_category(
   guild_id BIGINT PRIMARY KEY,
@@ -74,27 +75,28 @@ CREATE TABLE IF NOT EXISTS raid_lobby_category(
   management_message_id BIGINT
 );
 '''
-
+# For setting the 
 RAID_CHANNELS = '''
 CREATE TABLE IF NOT EXISTS valid_raid_channels(
   channel_id BIGINT PRIMARY KEY,
   guild_id BIGINT NOT NULL
 );
 '''
-
+# For for getting the tags to get pinged for a specifc pokemon
 REQUEST_CHANNELS = '''
 CREATE TABLE IF NOT EXISTS valid_request_channels(
   channel_id BIGINT PRIMARY KEY,
   guild_id BIGINT NOT NULL
 );
 '''
+# For getting the user's last time they were a participant in a raid
 RECENT_PARTICIPATION_TABLE = '''
 CREATE TABLE IF NOT EXISTS raid_participation_table(
   user_id BIGINT PRIMARY KEY,
   last_participation_time TIMESTAMPTZ NOT NULL
 );
 '''
-
+# For getting all of the message ids for giving out the tags for specific pokemon
 REQUEST_TABLE = '''
 CREATE TABLE IF NOT EXISTS request_role_id_map(
   role_id BIGINT PRIMARY KEY,
@@ -103,7 +105,7 @@ CREATE TABLE IF NOT EXISTS request_role_id_map(
   role_name VARCHAR(20)
 );
 '''
-
+# Uhhh to add some sort of messages to the top of channels or something? idk
 RAID_STICKIES = '''
 CREATE TABLE IF NOT EXISTS raid_placeholder_stickies(
   channel_id BIGINT PRIMARY KEY,
