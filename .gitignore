@@ -211,3 +211,4 @@ pyvenv.cfg
 .webcache/
 .vscode
 data/formats.py
+data/formats.py
