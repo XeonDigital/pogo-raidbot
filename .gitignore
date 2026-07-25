@@ -210,3 +210,4 @@ lib64
 pyvenv.cfg
 .webcache/
 .vscode
+data/formats.py
