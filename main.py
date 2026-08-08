@@ -38,11 +38,14 @@ BOT = bot.Bot(COMMAND_PREFIX, description=DESCRIPTION, activity=GAME, intents=in
 
 BOT.pool = None
 BOT.categories_allowed = True
+BOT.test_server = None
 try:
-    BOT.test_server = discord.Object(id=int(os.getenv('TEST_SERVER_ID')))
-except ValueError as e:
-    print(f"Please enter a valid ID for TEST_SERVER_ID")
-
+    test_server_id = os.getenv('TEST_SERVER_ID')
+    if test_server_id:
+        BOT.test_server = discord.Object(id=int(test_server_id))
+except (TypeError, ValueError):
+    print("Please enter a valid ID for TEST_SERVER_ID")
+    BOT.test_server = None
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")

@@ -7,15 +7,29 @@ class Listeners(commands.Cog):
     """Event Listeners Cog"""
     def __init__(self, bot):
         self.__bot = bot
+        # on_ready can fire again on reconnect; only sync slash commands once per process.
+        self._has_synced = False
 
     @commands.Cog.listener()
     async def on_ready(self):
         """Built in event"""
         print(f'[i] Logged in as {self.__bot.user.name} \n')
+        print(f'[i] Connected guilds: {[f"{g.name} ({g.id})" for g in self.__bot.guilds]}')
+
+        # Skip re-syncing on later on_ready calls to avoid Discord rate limits.
+        if self._has_synced:
+            return
 
         try:
+            # Guild sync shows commands immediately; global sync can take up to an hour.
+            # copy_global_to is required so guild sync includes the global command tree.
+            for guild in self.__bot.guilds:
+                self.__bot.tree.copy_global_to(guild=guild)
+                synced = await self.__bot.tree.sync(guild=guild)
+                print(f"[i] Synced {len(synced)} commands to guild {guild.name} ({guild.id}).")
             synced = await self.__bot.tree.sync()
-            print(f"Synced {len(synced)} commands.")
+            print(f"[i] Synced {len(synced)} commands globally.")
+            self._has_synced = True
         except Exception as error:
             print(f"Failed to sync commands: {error}")
 

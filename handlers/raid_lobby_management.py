@@ -5,6 +5,7 @@ import discord
 
 from handlers import raid_handler as RH
 from handlers import raid_lobby_handler as RLH
+from handlers import sticky_handler as SH
 
 async def notify_lobby_members_of_host_deleting_lobby(lobby):
     members = lobby.members
@@ -22,23 +23,11 @@ async def notify_lobby_members_of_host_deleting_lobby(lobby):
             except discord.DiscordException:
                 pass
 
-async def notify_user_cannot_alter_lobby_while_in_raid(user):
-    embed = discord.Embed(title="Error", description="You cannot modify your lobby while the raid listing still exists. Please remove the listing and try again.")
-    try:
-        await user.send(embed=embed)
-    except discord.DiscordException:
-        pass
-
 async def extend_duration_of_lobby(bot, user):
     lobby_data = await RLH.get_lobby_data_by_user_id(bot, user.id)
     if not lobby_data:
         return
-    
-    raid_data = await RH.check_if_in_raid(None, bot, user.id)
-    if raid_data and raid_data.get("message_id") == lobby_data.get("raid_message_id"):
-        await notify_user_cannot_alter_lobby_while_in_raid(user)
-        return
-        
+
     lobby_delete_time = lobby_data.get("delete_at")
     extension_amount = 10
     extension_measurement = "minute"
@@ -46,13 +35,14 @@ async def extend_duration_of_lobby(bot, user):
     old_total_duration = lobby_delete_time - lobby_data.get("posted_at")
     new_total_duration = new_delete_time - lobby_data.get("posted_at")
 
+    lobby = None
     try:
         lobby = await bot.retrieve_channel(lobby_data.get("lobby_channel_id"))
     except discord.DiscordException:
         pass
 
     if not lobby:
-        await RLH.remove_lobby_by_lobby_id(bot, lobby_data.get("lobby_channel_id"))
+        await RLH.remove_lobby_by_lobby_id(bot, lobby_data)
         return
 
     max_remaining_extendable_time = 2700 - old_total_duration.total_seconds()
@@ -102,15 +92,22 @@ async def host_manual_remove_lobby(bot, user):
             pass
         return
 
+    # Remove the public raid listing first so the lobby isn't left orphaned.
     raid_data = await RH.check_if_in_raid(None, bot, user.id)
-    # Checks if the raid data exits and checks if the message id is the same as the raid message id?
-    if raid_data and raid_data.get("message_id") == lobby_data.get("raid_message_id") :
-        await notify_user_cannot_alter_lobby_while_in_raid(user)
-        return
-        
-    lobby = await bot.retrieve_channel(lobby_data.get("lobby_channel_id"))
+    if raid_data and raid_data.get("message_id") == lobby_data.get("raid_message_id"):
+        await RH.remove_raid_from_table(bot, raid_data.get("message_id"))
+        try:
+            await bot.http.delete_message(raid_data.get("channel_id"), raid_data.get("message_id"))
+        except discord.DiscordException:
+            pass
+        try:
+            await SH.toggle_raid_sticky(bot, None, int(raid_data.get("channel_id")), int(raid_data.get("guild_id")))
+        except discord.DiscordException:
+            pass
 
-    await RLH.delete_lobby(bot, lobby)
+    lobby = await bot.retrieve_channel(lobby_data.get("lobby_channel_id"))
+    if lobby:
+        await RLH.delete_lobby(bot, lobby)
 
 INSERT_MANAGEMENT_DATA = """
     UPDATE raid_lobby_category
@@ -150,6 +147,11 @@ async def set_up_management_channel(interaction: discord.Interaction, bot, shoul
     category_id = channel.category_id
     lobby_category_data = await RLH.get_raid_lobby_category_by_guild_id(bot, interaction.guild.id)
 
+    if not lobby_category_data:
+        embed = discord.Embed(title="Error", description="No raid lobby category is registered for this server. Run `/register_raid_lobby_category` in a channel inside the lobby category first.", color=0xff8c00)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return False
+
     raid_host_role = discord.utils.get(interaction.guild.roles, name="Raid Host")
     if not raid_host_role:
         raid_host_role = await RLH.create_raid_host_role(interaction.guild)
@@ -170,6 +172,7 @@ async def set_up_management_channel(interaction: discord.Interaction, bot, shoul
 
     dashboard_message = await create_dashboard_message(channel)
     if not dashboard_message:
+        await interaction.followup.send("Failed to create the management dashboard message.", ephemeral=True)
         return
 
     old_management_message_id = lobby_category_data.get("management_message_id")
@@ -185,7 +188,6 @@ async def set_up_management_channel(interaction: discord.Interaction, bot, shoul
         await remove_old_channel(bot, lobby_category_data.get("management_channel_id"))
 
     await update_channel_database_info(bot, channel.id, lobby_category_data.get("guild_id"))
-    #await insert_management_channel_data(bot, dashboard_message.id, channel.id)
 
     try:
         await interaction.followup.send("Management dashboard set up successfully.", ephemeral=True)
