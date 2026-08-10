@@ -1,5 +1,5 @@
 """Raid SQL statements and database interaction functions"""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import asyncpg
 import discord
@@ -16,7 +16,7 @@ VALUES($1, $2, $3, $4, $5, $6)
 """
 async def add_raid_to_table(interaction: discord.Interaction, bot, message_id, guild_id, channel_id, user_id, time_to_remove):
     """Add a raid to the database with all the given data points."""
-    cur_time = datetime.now()
+    cur_time = datetime.now(tz=timezone.utc)
 
     await bot.database.execute(NEW_RAID_INSERT,
                                  int(message_id),
@@ -194,19 +194,23 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
     #     await interaction.message.delete()
     # except:
     #     pass
+    # checks if the channel that ran the slash command was valid
     if not await check_if_valid_raid_channel(bot, interaction.channel.id):
         print(f"[i] Please enter the command in the valid raid channel")
         await interaction.followup.send(f"Please enter the command in the correct raid channel")
         return
-
+    # checks if they are in a raid
     if await check_if_in_raid(interaction, bot, interaction.user.id):
-        await interaction.user.send(H.guild_member_dm(interaction.guild.name, "You are already in a raid."))
+        await interaction.followup.send(H.guild_member_dm(interaction.guild.name, "You are already in a raid."))
         return
+    # checks if they have a lobby opened
     if await get_lobby_data_by_user_id(bot, interaction.user.id):
-        await interaction.user.send(H.guild_member_dm(interaction.guild.name, "You currently have a lobby open. Please close your old lobby and retry."))
+        await interaction.followup.send(H.guild_member_dm(interaction.guild.name, "You currently have a lobby open. Please close your old lobby and retry."))
         return
+    # Checkes if they are a verified raid host
     is_verified = discord.utils.get(interaction.user.roles, name="Verified Raid Host")
     try:
+        # Makes sure that the invites slots input is valid
         invite_slots = int(invite_slots)
         if not is_verified and invite_slots > 5:
             embed = discord.Embed(title="Error", description="To host a raid with more than 5 users, you must be verified by the moderators of this server and given the 'Verified Raid Host' role to show you understand how to host a large party raid.")
@@ -214,7 +218,7 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
             return
     except ValueError:
         pass
-
+    # Checks if the rest of the input is valid
     raid_is_valid, response, suggestion = validate_and_format_message(interaction,
                                                                         tier,
                                                                         pokemon_name,
@@ -225,56 +229,69 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
         temp = temp.replace("-Altered", "")
         temp = temp.replace("-Origin","")
         temp = temp.replace("-", " ")
+        # Checks if the pokemon is in a the dex list
         if not bot.dex.is_current_raid_boss(temp):
             embed = discord.Embed(title="Error", description=f"That pokemon ({temp}) is not currently in rotation. If you believe this is an error, please contact TheStaplergun#6920.")
             await bot.send_ignore_error(interaction.user, " ", embed=embed)
             return
-        remove_after_seconds = 90
+        #i think this is to attempt to remove the message? im not sure
+        remove_after_seconds = 900
         channel_message_body = f'Raid hosted by {interaction.user.mention}\n'
         _, _, _, role_id = await REQH.check_if_request_message_exists(bot, response.title, interaction.guild.id)
-        time_to_delete = datetime.now() + timedelta(seconds=remove_after_seconds)
-        message_to_dm = f"Your raid has been successfully listed.\nIt will automatically be deleted in just 10 minutes or at <t:{int(time_to_delete.timestamp())}:t>.\nPress the trash can to remove it at any time."
+        # im guessing that time to delete is it deleting the message but doesnt for some reason?
+        time_to_delete = datetime.now(tz=timezone.utc) + timedelta(seconds=remove_after_seconds)
+        message_to_dm = f"Your raid has been successfully listed.\nIt will automatically be deleted in just 15 minutes or at <t:{int(time_to_delete.timestamp())}:t>.\nPress the trash can to remove it at any time."
         try:
+            #checks they can be dmed otherwise exit?
             await interaction.user.send(H.guild_member_dm(interaction.guild.name, message_to_dm))
         except discord.Forbidden:
             await interaction.followup.send(interaction.user.name + ", I was unable to DM you. You must have your DMs open to coordinate raids.\nRaid will not be listed.", ephemeral=True)
             return
+        # Allows people to be pinged when a raid pops up
         request_channel_id = await REQH.get_request_channel(bot, interaction.guild.id)
         if request_channel_id:
             response.add_field(name="Want to be pinged for future raids?", value="📬 Add Role\n📪 Remove Role", inline=False)
+        # Gets the guild set channels
         raid_lobby_category = await get_raid_lobby_category_by_guild_id(bot, interaction.guild.id)
         start_string = ""
+        # Mentions the roles associated with the pokemon
         if role_id:
             role = discord.utils.get(interaction.guild.roles, id=role_id)
             start_string = f'{role.mention}'
         end_string = ""
+        #if the raid does has a role do this
         if raid_lobby_category:
             response.set_footer(text="📝 sign up")
         else:
             end_string = f' hosted by {interaction.user.mention}\n'
         channel_message_body = start_string + end_string
+        # send the message to the channel specifically for raids
         try:
             message = await interaction.channel.send(channel_message_body, embed=response)
             await interaction.followup.send("Raid listed in the channel.", ephemeral=True)
         except discord.DiscordException as error:
             print(f'[*][{interaction.guild.name}][{interaction.user}] An error occurred listing a raid. [{error}]')
             return
+        # add the raid to the table
         await add_raid_to_table(interaction, bot, message.id, interaction.guild.id, message.channel.id, interaction.user.id, time_to_delete)
 
         await message.add_reaction("🗑️")
         lobby = None
         if raid_lobby_category:
+            # Gives them an extended 5 mintues to let it close or extend the lobby i guess
             time_to_remove_lobby = time_to_delete + timedelta(seconds=300)
             lobby = await create_raid_lobby(interaction, bot, message.id, interaction.user, time_to_remove_lobby, int(invite_slots))
             await message.add_reaction("📝")
 
         if request_channel_id:
+            # Adds the abilitiy to signup to be tagged for future raid from this pokemnon
             try:
                 await message.add_reaction("📬")
                 await message.add_reaction("📪")
             except discord.DiscordException as error:
                 print(f'[!] Exception occurred during adding request enrollment reactions. [{error}]')
         if lobby:
+            # edits the message to include a link to the lobby
             edited_message_content = f"{message.content}\n{lobby.mention} **<-lobby**"
             await message.edit(content=edited_message_content)
         print(f'[*][{interaction.guild}][{interaction.user.name}] Raid successfuly posted.')

@@ -1,5 +1,6 @@
 import discord
 
+import asyncio
 import data.formats as F
 from pogo_raid_lib import *
 
@@ -73,13 +74,14 @@ value_from_arg ={
     "rarity":lambda entry: entry.get("rarity").split("_").pop(2).title()
 }
 
-def move_to_readable(bot, movenum, move):
+async def move_to_readable(bot, movenum, move):
     move_name = move.get("moveId").replace("_FAST","")
     move_name = move_name.replace("_", " ").title()
-
+    
     move_type = move.get("type").split("_").pop()
-    move_type = bot.get_emoji(int(F.TYPE_TO_EMOJI.get(move_type)))
-    return f"{move_type} {move_name}"
+    icon = await bot.fetch_application_emoji(int(F.TYPE_TO_EMOJI.get(move_type)))
+
+    return f"<:{icon.name}:{icon.id}> {move_name}"
 
 form_converter = {
     "ALOLA":"Alolan",
@@ -131,7 +133,7 @@ async def get_counter(bot, interaction: discord.Interaction, tier, name, weather
         await interaction.followup.send(message_to_send, ephemeral=True)
         return
 
-    embed = bot.dex.get_counter_for(bot, name, tier, weather)
+    embed = await bot.dex.get_counter_for(bot, name, tier, weather)
     embed_thumbnail = build_image_link_github(dex_num)
     embed.set_thumbnail(url=embed_thumbnail)
     try:

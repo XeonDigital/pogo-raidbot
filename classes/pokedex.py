@@ -1,8 +1,6 @@
 """
 Pokedex class that wraps pokebattler API
 """
-import asyncio
-
 import discord
 from discord.ext import commands
 
@@ -147,7 +145,7 @@ class Pokedex():
             defender["byMove"] = moves
         return result, url
 
-    def get_counter_for(self, bot, name, tier, weather):
+    async def get_counter_for(self, bot, name, tier, weather):
         name_id = self.convert_name_to_id(name, tier)
         tier = tier.upper()
         tier = tier.replace("T","")
@@ -163,7 +161,7 @@ class Pokedex():
         counter = 1
         for pokemon in result:
             moves = pokemon.get("byMove")
-            value = "\n".join([AH.move_to_readable(bot, movenum, move) for movenum,move in moves.items() if movenum == "move1" or movenum == "move2"])
+            value = "\n".join([await AH.move_to_readable(bot, movenum, move) for movenum,move in moves.items() if movenum == "move1" or movenum == "move2"])
             name = name_getter(pokemon)
             embed.add_field(name=f"{counter}) {name}", value=value, inline=True)
             counter += 1

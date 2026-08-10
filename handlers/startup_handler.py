@@ -1,7 +1,7 @@
 """State restoration for bot."""
 from operator import itemgetter
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime , timedelta, timezone
 import time
 import discord
 import handlers.raid_handler as RH
@@ -29,7 +29,7 @@ async def spin_up_message_deletions(bot):
         print("[*] No pending raids found to delete.")
         return
 
-    cur_time = datetime.now()
+    cur_time = datetime.now(tz=timezone.utc)
     to_delete = {}
     future_delete = {}
     for record in results:
@@ -62,7 +62,7 @@ async def spin_up_message_deletions(bot):
 
     sorted(future_delete)
     for ttr, data in future_delete.items():
-        cur_time = datetime.now()
+        cur_time = datetime.now(tz=timezone.utc)
         delay = ttr - cur_time
         if ttr < cur_time:
             delay = 0
@@ -125,16 +125,11 @@ async def start_lobby_removal_loop(bot):
     while True:
         # Process lobbies until no lobbies remain before going to outer loop.
         while True:
-            #gets the lobby data
             lobby_data = await RLH.get_next_lobby_to_remove(bot)
-            #exits the loop if there is none
             if not lobby_data:
                 break
-            #gets the current date
-            cur_time = datetime.now()
-            #gets the deletion time
+            cur_time = datetime.now(tz=timezone.utc)
             deletion_time = lobby_data.get("delete_at")
-            #subtracts the deletion time to the current time
             deletion_time_dif = deletion_time - cur_time
             if cur_time < deletion_time:
                 if deletion_time_dif.total_seconds() > 1:
@@ -167,7 +162,7 @@ async def start_applicant_loop(bot):
 
             total_lobbies_to_handle = len(raid_lobby_data_list)
             checked_count = 0
-            cur_time = datetime.now()
+            cur_time = datetime.now(tz=timezone.utc)
             threshold_time = cur_time - timedelta(seconds=45)
 
             for raid_lobby_data in raid_lobby_data_list:

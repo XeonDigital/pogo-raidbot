@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import math
 
 import discord
@@ -87,7 +87,7 @@ async def extend_duration_of_lobby(bot, user):
     if max_remaining_extendable_time > 1:
         max_remaining_extendable_time_type = f"{max_remaining_extendable_time_type}s"
 
-    time_until_expiration_as_minutes = math.ceil((new_delete_time - datetime.now()).total_seconds()/60)
+    time_until_expiration_as_minutes = math.ceil((new_delete_time - datetime.now(tz=timezone.utc)).total_seconds()/60)
     new_embed = discord.Embed(title="System Notification", description=f"The host has extended the lobby duration by {extension_amount} {extension_measurement}. It will now expire in {time_until_expiration_as_minutes} minutes.\n\nYou can add up to {max_remaining_extendable_time} more {max_remaining_extendable_time_type}")
     await RLH.update_delete_time_with_given_time(bot, new_delete_time, lobby_data.get("raid_message_id"))
     await lobby.send(embed=new_embed)
@@ -103,7 +103,8 @@ async def host_manual_remove_lobby(bot, user):
         return
 
     raid_data = await RH.check_if_in_raid(None, bot, user.id)
-    if raid_data and raid_data.get("message_id") == lobby_data.get("raid_message_id"):
+    # Checks if the raid data exits and checks if the message id is the same as the raid message id?
+    if raid_data and raid_data.get("message_id") == lobby_data.get("raid_message_id") :
         await notify_user_cannot_alter_lobby_while_in_raid(user)
         return
         
