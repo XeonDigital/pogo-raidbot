@@ -11,10 +11,6 @@ class CommandErrorHandler(commands.Cog):
         bot.tree.on_error = self.on_app_command_error
 
     async def on_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
-        if interaction.command is not None and hasattr(interaction.command, 'on_error'):
-            print(f"[!]A error occured when running a slash command: {error}")
-            return
-
         error = getattr(error, 'original', error)
 
         ignored = (app_commands.CommandNotFound, )
@@ -36,7 +32,7 @@ class CommandErrorHandler(commands.Cog):
         elif isinstance(error, asyncpg.PostgresError):
             message = f"A database error occurred while processing your command: [{error}]"
         else:
-            print(f'Ignoring exception in command {interaction.command}:', file=sys.stderr)
+            print(f'[!] Exception in command {interaction.command}: {error}', file=sys.stderr)
             traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
 
         try:
