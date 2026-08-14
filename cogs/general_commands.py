@@ -101,21 +101,25 @@ class GeneralCommands(commands.Cog):
             if not display:
                 continue
             tier = (raid_data or {}).get("tier") or ""
-            match tier:
-                case "RAID_LEVEL_1":
-                    tier1.append(display)
-                case "RAID_LEVEL_3":
-                    tier3.append(display)
-                case "RAID_LEVEL_5" | "RAID_LEVEL_ULTRA_BEAST":
-                    tier5.append(display)
-                case "RAID_LEVEL_MEGA" | "RAID_LEVEL_ELITE":
-                    mega.append(display)
-                case "RAID_LEVEL_1_SHADOW":
-                    sha_tier1.append(display)
-                case "RAID_LEVEL_3_SHADOW":
-                    sha_tier3.append(display)
-                case "RAID_LEVEL_5_SHADOW":
-                    sha_tier5.append(display)
+            if "SHADOW" not in raid_data.get("pokemon"):
+                match tier:
+                    case "RAID_LEVEL_1":
+                        tier1.append(display)
+                    case "RAID_LEVEL_3":
+                        tier3.append(display)
+                    case "RAID_LEVEL_5" | "RAID_LEVEL_ULTRA_BEAST":
+                        tier5.append(display)
+                    case "RAID_LEVEL_MEGA" | "RAID_LEVEL_ELITE":
+                        mega.append(display)
+                    
+            else:
+                match tier:
+                    case "RAID_LEVEL_1_SHADOW" | "RAID_LEVEL_1":
+                        sha_tier1.append(display)
+                    case "RAID_LEVEL_3_SHADOW" | "RAID_LEVEL_3":
+                        sha_tier3.append(display)
+                    case "RAID_LEVEL_5_SHADOW" | "RAID_LEVEL_5":
+                        sha_tier5.append(display)
 
         tier1.sort()
         tier3.sort()
