@@ -23,13 +23,13 @@ async def notify_lobby_members_of_host_deleting_lobby(lobby):
             except discord.DiscordException:
                 pass
 
-async def extend_duration_of_lobby(bot, user):
+async def extend_duration_of_lobby(bot, user, minutes=None):
     lobby_data = await RLH.get_lobby_data_by_user_id(bot, user.id)
     if not lobby_data:
         return
 
     lobby_delete_time = lobby_data.get("delete_at")
-    extension_amount = 10
+    extension_amount = 10 if minutes is None else int(minutes)
     extension_measurement = "minute"
     new_delete_time = lobby_delete_time + timedelta(minutes=extension_amount)
     old_total_duration = lobby_delete_time - lobby_data.get("posted_at")

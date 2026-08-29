@@ -8,6 +8,9 @@ from handlers import raid_lobby_handler as RLH
 async def on_message_handle(message, bot):
     if message.author.bot:
         return True
+    # Slash invocations are logged from on_interaction; skip the system command message.
+    if message.type == discord.MessageType.chat_input_command:
+        return True
     # Handle this first because it's a logging function.
     raid_lobby_channel_data = await RLH.get_lobby_data_by_lobby_id(bot, message.channel.id)
     raid_lobby_channel = None

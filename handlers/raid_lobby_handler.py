@@ -108,19 +108,48 @@ GET_RELEVANT_LOBBY_BY_TIME_AND_USERS = """
 async def get_latest_lobby_data_by_timestamp(bot):
     return await bot.database.fetch(GET_RELEVANT_LOBBY_BY_TIME_AND_USERS)
 
-async def log_message_in_raid_lobby_channel(bot, message, lobby_channel, lobby_data):
-    author = message.author
-    category_data = await get_raid_lobby_category_by_guild_id(bot, message.guild.id)
-    log_channel_id = category_data.get("log_channel_id")
-    log_channel = bot.get_channel(int(log_channel_id))
+async def log_lobby_activity(bot, *, guild, user, lobby_channel, lobby_data, description, jump_url=None):
+    if not guild or not lobby_channel:
+        return
 
-    new_embed = discord.Embed(title="Logged Message", url=message.jump_url, description=message.content)
-    new_embed.set_author(name=author.name, icon_url=author.avatar.url)
-    new_embed.set_footer(text=f"User ID: {author.id} | Time: {datetime.now(tz=timezone.utc)} UTC")
-    host_user_id = lobby_data.get("host_user_id")
-    guild = lobby_channel.guild
-    host_member = discord.utils.get(guild.members, id=host_user_id)
-    await log_channel.send(f"Lobby: {lobby_channel.name}\nHost: {host_member.mention}", embed=new_embed)
+    category_data = await get_raid_lobby_category_by_guild_id(bot, guild.id)
+    if not category_data:
+        return
+
+    log_channel_id = category_data.get("log_channel_id")
+    if not log_channel_id:
+        return
+
+    log_channel = bot.get_channel(int(log_channel_id))
+    if not log_channel:
+        return
+
+    embed = discord.Embed(title="Logged Message", description=description or "")
+    if jump_url:
+        embed.url = jump_url
+    if user:
+        embed.set_author(name=user.name, icon_url=user.display_avatar.url)
+        embed.set_footer(text=f"User ID: {user.id} | Time: {datetime.now(tz=timezone.utc)} UTC")
+
+    host_user_id = lobby_data.get("host_user_id") if lobby_data else None
+    host_member = lobby_channel.guild.get_member(int(host_user_id)) if host_user_id else None
+    host_mention = host_member.mention if host_member else "Unknown"
+
+    try:
+        await log_channel.send(f"Lobby: {lobby_channel.name}\nHost: {host_mention}", embed=embed)
+    except discord.DiscordException:
+        pass
+
+async def log_message_in_raid_lobby_channel(bot, message, lobby_channel, lobby_data):
+    await log_lobby_activity(
+        bot,
+        guild=message.guild,
+        user=message.author,
+        lobby_channel=lobby_channel,
+        lobby_data=lobby_data,
+        description=message.content,
+        jump_url=message.jump_url,
+    )
 
 NEW_LOBBY_INSERT = """
 INSERT INTO raid_lobby_user_map (lobby_channel_id, host_user_id, raid_message_id, guild_id, posted_at, delete_at, user_count, user_limit, applied_users, notified_users)
