@@ -294,6 +294,12 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
             # edits the message to include a link to the lobby
             edited_message_content = f"{message.content}\n{lobby.mention} **<-lobby**"
             await message.edit(content=edited_message_content)
+            try:
+                from handlers.events.interactions import log_slash_command_for_lobby
+                lobby_data = await get_lobby_data_by_user_id(bot, interaction.user.id)
+                await log_slash_command_for_lobby(bot, interaction, lobby, lobby_data)
+            except Exception as error:
+                print(f"[!] Failed to log /raid command. [{error}]")
         print(f'[*][{interaction.guild}][{interaction.user.name}] Raid successfuly posted.')
 
         try:

@@ -4,12 +4,10 @@ from handlers import helpers as H
 from handlers import request_handler as REQH
 from handlers import raid_handler as RH
 from handlers import raid_lobby_handler as RLH
+from handlers.events.slash_logging import should_skip_message_logging
 
 async def on_message_handle(message, bot):
-    if message.author.bot:
-        return True
-    # Slash invocations are logged from on_interaction; skip the system command message.
-    if message.type == discord.MessageType.chat_input_command:
+    if should_skip_message_logging(message):
         return True
     # Handle this first because it's a logging function.
     raid_lobby_channel_data = await RLH.get_lobby_data_by_lobby_id(bot, message.channel.id)
