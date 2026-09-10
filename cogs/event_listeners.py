@@ -56,6 +56,14 @@ class Listeners(commands.Cog):
         except Exception as error:
             print(f'An exception occurred during message handling. [{error}]')
 
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction):
+        """Built in event"""
+        try:
+            await EH.on_interaction_handle(interaction, self.__bot)
+        except Exception as error:
+            print(f'An exception occurred during interaction handling. [{error}]')
+
 
 async def setup(bot):
     """Default setup function for file"""

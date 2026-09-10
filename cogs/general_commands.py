@@ -1,6 +1,7 @@
 """Cog containing general commands"""
 import asyncio
 import time
+from typing import Optional
 
 import discord
 from discord import app_commands
@@ -71,9 +72,10 @@ class GeneralCommands(commands.Cog):
             pass
 
     @app_commands.command(name="extend", description="Allows a user to manually extend the time of their lobby.")
-    async def extend(self, interaction: discord.Interaction):
+    @app_commands.describe(minutes="Minutes to add. Defaults to 10.")
+    async def extend(self, interaction: discord.Interaction, minutes: Optional[app_commands.Range[int, 1, 45]] = None):
         await interaction.response.defer(ephemeral=True)
-        await RLM.extend_duration_of_lobby(self.__bot, interaction.user)
+        await RLM.extend_duration_of_lobby(self.__bot, interaction.user, minutes=minutes)
         try:
             await interaction.followup.send("Lobby extend command processed.", ephemeral=True)
         except discord.DiscordException:

@@ -6,6 +6,7 @@ import discord
 from handlers import raid_handler as RH
 from handlers import raid_lobby_handler as RLH
 from handlers import sticky_handler as SH
+from handlers.events.slash_logging import resolve_extension_minutes
 
 async def notify_lobby_members_of_host_deleting_lobby(lobby):
     members = lobby.members
@@ -23,13 +24,13 @@ async def notify_lobby_members_of_host_deleting_lobby(lobby):
             except discord.DiscordException:
                 pass
 
-async def extend_duration_of_lobby(bot, user):
+async def extend_duration_of_lobby(bot, user, minutes=None):
     lobby_data = await RLH.get_lobby_data_by_user_id(bot, user.id)
     if not lobby_data:
         return
 
     lobby_delete_time = lobby_data.get("delete_at")
-    extension_amount = 10
+    extension_amount = resolve_extension_minutes(minutes)
     extension_measurement = "minute"
     new_delete_time = lobby_delete_time + timedelta(minutes=extension_amount)
     old_total_duration = lobby_delete_time - lobby_data.get("posted_at")
