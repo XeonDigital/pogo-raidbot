@@ -686,7 +686,16 @@ async def handle_user_failed_checkin(bot, applicant_data):
                          decrement_notified_users_by_raid_id(bot, raid_id),
                          bot.send_ignore_error(member, " ", embed=new_embed))
 
+async def remove_listing_for_lobby(bot, lobby_data):
+    if not lobby_data:
+        return
+    await RH.remove_listing_for_raid(bot, lobby_data.get("raid_message_id"))
+
+
 async def delete_lobby(bot, lobby):
+    lobby_data = await get_lobby_data_by_lobby_id(bot, lobby.id)
+    await remove_listing_for_lobby(bot, lobby_data)
+
     members = lobby.members
     guild = lobby.guild
     lobby_member_role = discord.utils.get(guild.roles, name="Lobby Member")

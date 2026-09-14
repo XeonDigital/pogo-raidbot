@@ -3,9 +3,7 @@ import math
 
 import discord
 
-from handlers import raid_handler as RH
 from handlers import raid_lobby_handler as RLH
-from handlers import sticky_handler as SH
 from handlers.events.slash_logging import resolve_extension_minutes
 
 async def notify_lobby_members_of_host_deleting_lobby(lobby):
@@ -93,22 +91,13 @@ async def host_manual_remove_lobby(bot, user):
             pass
         return
 
-    # Remove the public raid listing first so the lobby isn't left orphaned.
-    raid_data = await RH.check_if_in_raid(None, bot, user.id)
-    if raid_data and raid_data.get("message_id") == lobby_data.get("raid_message_id"):
-        await RH.remove_raid_from_table(bot, raid_data.get("message_id"))
-        try:
-            await bot.http.delete_message(raid_data.get("channel_id"), raid_data.get("message_id"))
-        except discord.DiscordException:
-            pass
-        try:
-            await SH.toggle_raid_sticky(bot, None, int(raid_data.get("channel_id")), int(raid_data.get("guild_id")))
-        except discord.DiscordException:
-            pass
-
     lobby = await bot.retrieve_channel(lobby_data.get("lobby_channel_id"))
     if lobby:
         await RLH.delete_lobby(bot, lobby)
+        return
+
+    await RLH.remove_listing_for_lobby(bot, lobby_data)
+    await RLH.remove_lobby_by_lobby_id(bot, lobby_data)
 
 INSERT_MANAGEMENT_DATA = """
     UPDATE raid_lobby_category

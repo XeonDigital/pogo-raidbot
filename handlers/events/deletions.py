@@ -67,6 +67,7 @@ async def raw_message_delete_handle(payload, bot):
 async def on_guild_channel_delete(channel, bot):
     lobby_data = await RLH.get_lobby_data_by_lobby_id(bot, channel.id)
     if lobby_data:
+        await RLH.remove_listing_for_lobby(bot, lobby_data)
         await RLH.remove_lobby_by_lobby_id(bot, lobby_data)
         return
 
