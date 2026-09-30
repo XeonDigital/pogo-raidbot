@@ -134,6 +134,29 @@ async def delete_raid(bot, raid_id):
         return
 
 
+async def remove_listing_for_raid(bot, raid_message_id):
+    """Remove the public listing and raid row. No-op if the listing is already gone.
+
+    The raids row is deleted first so on_raw_message_delete does not treat this
+    as a user-deleted listing and reschedule the lobby.
+    """
+    if not raid_message_id:
+        return
+    raid_data = await retrieve_raid_data_by_message_id(None, bot, raid_message_id)
+    if not raid_data:
+        return
+
+    await remove_raid_from_table(bot, raid_data.get("message_id"))
+    try:
+        await bot.http.delete_message(int(raid_data.get("channel_id")), int(raid_data.get("message_id")))
+    except discord.DiscordException as error:
+        print(f"[!] Failed to delete raid listing message. [{error}]")
+    try:
+        await SH.toggle_raid_sticky(bot, None, int(raid_data.get("channel_id")), int(raid_data.get("guild_id")))
+    except discord.DiscordException as error:
+        print(f"[!] Exception occurred during toggle of raid sticky. [{error}]")
+
+
 async def handle_clear_user_from_raid(interaction: discord.Interaction, bot, user_id):
     guild = interaction.guild
     member = guild.get_member(int(user_id)) # conv to int just to make sure its not a string
