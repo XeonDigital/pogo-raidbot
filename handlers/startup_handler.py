@@ -116,6 +116,18 @@ async def start_status_update_loop(bot):
         count = await set_new_presence(bot, count)
         await asyncio.sleep(600)
 
+POKEDEX_REFRESH_SECONDS = 24 * 60 * 60
+
+async def start_pokedex_refresh_loop(bot):
+    """Refreshes the pokemon name lookup periodically so new Pokemon and forms appear without a restart."""
+    while True:
+        await asyncio.sleep(POKEDEX_REFRESH_SECONDS)
+        try:
+            await asyncio.to_thread(bot.dex.update_pokemon_cache)
+            await bot.dex.sync_pokemon_list(bot.database)
+        except Exception as error:
+            print(f"[!] Pokedex refresh failed: {error}")
+
 async def start_lobby_removal_loop(bot):
     """Permanently running loop while bot is up."""
 

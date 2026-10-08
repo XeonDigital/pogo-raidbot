@@ -114,6 +114,56 @@ CREATE TABLE IF NOT EXISTS raid_placeholder_stickies(
 )
 '''
 
+# Reference data mirrored from pokebattler. Kept in its own schema
+POKEDEX_SCHEMA = '''
+CREATE SCHEMA IF NOT EXISTS pokedex;
+
+-- One row per species (e.g. ZORUA).
+CREATE TABLE IF NOT EXISTS pokedex.pokemon_list(
+  id            INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  pokebattler_id TEXT NOT NULL UNIQUE,
+  dex_num       INTEGER NOT NULL,
+  display_name  TEXT NOT NULL,
+  name_override TEXT,
+  family_id     TEXT,
+  rarity        TEXT,
+  can_dynamax   BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- One row per pokebattler id
+CREATE TABLE IF NOT EXISTS pokedex.pokemon_forms(
+  id                INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  pokebattler_id    TEXT NOT NULL UNIQUE,
+  species_id        INTEGER NOT NULL REFERENCES pokedex.pokemon_list(id),
+  display_name      TEXT NOT NULL,
+  icon_key          TEXT NOT NULL,
+  form              TEXT,
+  parent_species_id INTEGER REFERENCES pokedex.pokemon_list(id),
+  type_1            TEXT,
+  type_2            TEXT,
+  is_mega           BOOLEAN NOT NULL DEFAULT FALSE,
+  is_shadow         BOOLEAN NOT NULL DEFAULT FALSE,
+  is_gigantamax     BOOLEAN NOT NULL DEFAULT FALSE,
+  is_cosmetic       BOOLEAN NOT NULL DEFAULT FALSE,
+  overrides         JSONB NOT NULL DEFAULT '{}',
+  aliases           TEXT[] NOT NULL DEFAULT '{}',
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS pokemon_forms_species_idx ON pokedex.pokemon_forms(species_id);
+
+CREATE INDEX IF NOT EXISTS pokemon_forms_parent_idx ON pokedex.pokemon_forms(parent_species_id);
+
+-- At most one row per form, so the form's id is also this table's primary key.
+CREATE TABLE IF NOT EXISTS pokedex.pokemon_stats(
+  form_id      INTEGER PRIMARY KEY REFERENCES pokedex.pokemon_forms(id) ON DELETE CASCADE,
+  base_attack  INTEGER NOT NULL,
+  base_defense INTEGER NOT NULL,
+  base_stamina INTEGER NOT NULL,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+'''
+
 # Existing databases may predate these columns; CREATE TABLE IF NOT EXISTS will not add them.
 RAID_LOBBY_CATEGORY_MIGRATIONS = [
     'ALTER TABLE raid_lobby_category ADD COLUMN IF NOT EXISTS management_channel_id BIGINT;',
@@ -140,6 +190,7 @@ async def initialize_database():
   await conn.execute(RECENT_PARTICIPATION_TABLE)
   await conn.execute(REQUEST_TABLE)
   await conn.execute(RAID_STICKIES)
+  await conn.execute(POKEDEX_SCHEMA)
   #await conn.execute(friend_code_table_update)
   #await conn.execute(UPDATE_WEIGHT_COLUMN)
   await conn.close()

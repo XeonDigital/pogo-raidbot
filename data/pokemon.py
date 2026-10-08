@@ -1211,14 +1211,3 @@ POKEBATTLER_LINK =\
   "Cobalion":"https://www.pokebattler.com/raids/Cobalion",
   "Kyurem":"https://www.pokebattler.com/raids/Kyurem"
 }
-
-NAME_TO_POKEBATTLER_ID =\
-{
-  "Charizard-X":"CHARIZARD_MEGA_X",
-  "Charizard-Y":"CHARIZARD_MEGA_Y",
-  "Mewtwo-X":"MEWTWO_MEGA_X",
-  "Mewtwo-Y":"MEWTWO_MEGA_Y",
-  "Nidoran-M":"NIDORAN_MALE",
-  "Nidoran-F":"NIDORAN_FEMALE",
-  "Giratina-Altered":"GIRATINA",
-}

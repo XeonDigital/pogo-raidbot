@@ -31,6 +31,7 @@ async def startup_process(bot):
         sys.exit()
     bot.database = database.Database(pool)
     await initialize_database()
+    await bot.dex.sync_pokemon_list(bot.database)
     await SH.set_up_guild_raid_counters(bot)
 
     if bot.live:
@@ -70,6 +71,11 @@ async def status_update_loop(bot):
     """Updates status continually every ten minutes."""
     await bot.wait_until_ready()
     await SH.start_status_update_loop(bot)
+
+async def pokedex_refresh_loop(bot):
+    """Periodically refreshes the pokemon name lookup."""
+    await bot.wait_until_ready()
+    await SH.start_pokedex_refresh_loop(bot)
 
 async def lobby_removal_loop(bot):
     """Removes lobbies as their time expires."""

@@ -5,9 +5,9 @@ import discord
 from discord.ext import commands
 
 from data import formats as F
-from data import pokemon as DEX
 from handlers.pokebattler import api_helper as AH
 from handlers.pokebattler import pokebattler_api as API
+from handlers.pokebattler.pokemon_lookup import build_entries, find_pokemon, load_cache, load_names, max_species_from_raids, save_pokemon
 from pogo_raid_lib import normalize_shadow_pokemon_name_for_lookup
 
 class Pokedex():
@@ -18,7 +18,27 @@ class Pokedex():
         self.update_rankings_cache()
 
     def update_pokemon_cache(self):
+        """Fetch the pokedex and write it to the database."""
         self.pokemon = API.fetch_pokedex()
+        try:
+            max_species = max_species_from_raids(API.fetch_raids(), self.pokemon)
+        except Exception as error:
+            print(f"[!] Could not fetch raids for ({type(error).__name__}); leaving it unchanged.")
+            max_species = None
+        self.pending_pokemon = (self.pokemon, max_species)
+
+    async def sync_pokemon_list(self, database):
+        """Save the staged pokemon, then reload the lookup cache with retry mechanism"""
+        try:
+            if self.pending_pokemon:
+                pokemon, max_species = self.pending_pokemon
+                entries = build_entries(pokemon, await load_names(database), max_species)
+                saved = await save_pokemon(database, entries)
+                self.pending_pokemon = None
+                print(f"[i] Saved {saved} pokemon forms to the database.")
+            await load_cache(database)
+        except Exception as error:
+            print(f"[!] Could not sync the pokemon list ({type(error).__name__}: {error}).")
 
     def update_moves_cache(self):
         self.moves = API.fetch_moves()
@@ -168,30 +188,6 @@ class Pokedex():
         return embed
 
     def convert_name_to_id(self, name, tier):
-        print(name, tier)
-        spec_name = DEX.NAME_TO_POKEBATTLER_ID.get(name.title())
-        if spec_name:
-            return spec_name
-
-        name = name.title()
-        if name in DEX.MEGA_DEX.values():
-            name = f"{name}_mega".upper()
-            return name
-
-        if name in DEX.ALOLAN_DEX.values():
-            name = "_".join(name.split("-")[1:])
-            name = f"{name}_alola_form".upper()
-            return name
-
-        if name in DEX.GALARIAN_DEX.values():
-            name = "_".join(name.split("-")[1:])
-            name = f"{name}_galarian_form".upper()
-            return name
-
-        if name in DEX.ALTERNATE_FORME_DEX.values():
-            name = name.replace("-", "_")
-            name = f"{name}_form".upper()
-            return name
-
-        name = name.replace("-","_").upper()
-        return name
+        """Pokebattler id for a name that already passed ``validate_pokemon``."""
+        match = find_pokemon(normalize_shadow_pokemon_name_for_lookup(name), mega="mega" in tier.lower())
+        return match["pokemon_id"]
