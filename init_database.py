@@ -123,13 +123,10 @@ CREATE TABLE IF NOT EXISTS pokedex.pokemon_list(
   id            INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   pokebattler_id TEXT NOT NULL UNIQUE,
   dex_num       INTEGER NOT NULL,
-  display_name  TEXT NOT NULL,
-  name_override TEXT,
-  family_id     TEXT,
   rarity        TEXT,
-  can_dynamax   BOOLEAN NOT NULL DEFAULT FALSE,
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS pokemon_list_dex_num_idx ON pokedex.pokemon_list(dex_num);
 
 -- One row per pokebattler id
 CREATE TABLE IF NOT EXISTS pokedex.pokemon_forms(
@@ -140,12 +137,8 @@ CREATE TABLE IF NOT EXISTS pokedex.pokemon_forms(
   icon_key          TEXT NOT NULL,
   form              TEXT,
   parent_species_id INTEGER REFERENCES pokedex.pokemon_list(id),
-  type_1            TEXT,
-  type_2            TEXT,
-  is_mega           BOOLEAN NOT NULL DEFAULT FALSE,
-  is_shadow         BOOLEAN NOT NULL DEFAULT FALSE,
-  is_gigantamax     BOOLEAN NOT NULL DEFAULT FALSE,
-  is_cosmetic       BOOLEAN NOT NULL DEFAULT FALSE,
+  types             TEXT[] NOT NULL DEFAULT '{}',
+  tags              TEXT[] NOT NULL DEFAULT '{}',
   overrides         JSONB NOT NULL DEFAULT '{}',
   aliases           TEXT[] NOT NULL DEFAULT '{}',
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()

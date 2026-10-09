@@ -62,59 +62,61 @@ def _split_species(tokens, species_ids):
     return tokens[0], tokens[1:]
 
 
-def classify(pokemon_id, species_ids, names):
-    flags = dict.fromkeys(("is_mega", "is_shadow", "is_gigantamax", "is_cosmetic"), False)
+# Shadow and G-Max become a tag on their base form.
+_FOLDED_SUFFIXES = (("_SHADOW_FORM", "shadow"), ("_GIGANTAMAX", "gigantamax"))
 
-    # Shadow and gigantamax rows are named after their base form.
-    for suffix, flag, prefix in (("_SHADOW_FORM", "is_shadow", "Shadow"), ("_GIGANTAMAX", "is_gigantamax", "Gigantamax")):
+
+def _folded(pokemon_id, ids):
+    for suffix, tag in _FOLDED_SUFFIXES:
         if pokemon_id.endswith(suffix):
             base = pokemon_id.removesuffix(suffix)
-            flags[flag] = True
-            base_name = classify(base if base in species_ids else f"{base}_FORM", species_ids, names)[0]
-            return f"{prefix} {base_name}", flags, None
+            return tag, (f"{base}_FORM" if base not in ids and f"{base}_FORM" in ids else base)
+    return None
 
+
+def classify(pokemon_id, species_ids, names):
     tokens = pokemon_id.removesuffix("_FORM").split("_")
 
     if "MEGA" in tokens or tokens[-1] == "PRIMAL":
-        flags["is_mega"] = True
         split = tokens.index("MEGA") if "MEGA" in tokens else len(tokens) - 1
         name, extra = _species_display("_".join(tokens[:split]), names), tokens[split + 1:]
-        return (f"{name}-{_titled(extra)}" if extra else name), flags, None
+        return (f"{name}-{_titled(extra)}" if extra else name), ["mega"], None
 
     if pokemon_id in species_ids or not pokemon_id.endswith("_FORM"):
-        return _species_display(pokemon_id, names), flags, None
+        return _species_display(pokemon_id, names), [], None
 
     species_id, qualifier = _split_species(tokens, species_ids)
     display = _species_display(species_id, names)
     if not qualifier:
-        flags["is_cosmetic"] = True
-        return display, flags, None
+        return display, [], None
 
     if qualifier[0] in REGION_PREFIXES:
         regional = f"{REGION_PREFIXES[qualifier[0]]}-{display.replace(' ', '-')}"
         variant = qualifier[1:]
-        return (f"{regional}-{_titled(variant)}" if variant else regional), flags, (regional if variant else None)
+        return (f"{regional}-{_titled(variant)}" if variant else regional), [], (regional if variant else None)
 
-    flags["is_cosmetic"] = (
-        any(re.search(r"\d", token) for token in qualifier)
-        or (len(qualifier) == 1 and len(qualifier[0]) == 1)
-    )
-    alias = None if flags["is_cosmetic"] else f"{' '.join(token.title() for token in qualifier)} {display}"
-    return f"{display}-{_titled(qualifier)}", flags, alias
+    alias = f"{' '.join(token.title() for token in qualifier)} {display}" if len("".join(qualifier)) > 1 else None
+    return f"{display}-{_titled(qualifier)}", [], alias
 
 
-def max_species_from_raids(raw_raids, pokemon_list):
-    """Species that appear in raids"""
+def max_battle_bosses(payload, pokemon_list):
+    """``(species, gigantamax)`` from pokebattler's tier list: species with a max battle, and base forms with a G-Max boss."""
+    ids = {p.get("pokemonId") for p in pokemon_list or []}
     species_by_id = {p.get("pokemonId"): (p.get("pokedex") or {}).get("pokemonId") for p in pokemon_list or []}
-    found = set()
-    for tier in (raw_raids or {}).get("tiers") or []:
+    species, gigantamax = set(), set()
+    for tier in (payload or {}).get("tiers") or []:
         if "_MAX" not in (tier.get("tier") or ""):
             continue
-        for raid in tier.get("raids") or []:
-            raid_id = raid.get("pokemon") or raid.get("pokemonId")
-            if raid_id:
-                found.add(species_by_id.get(raid_id) or raid_id.removesuffix("_GIGANTAMAX").removesuffix("_FORM"))
-    return found
+        for boss in tier.get("raids") or []:
+            boss_id = boss.get("pokemon") or boss.get("pokemonId")
+            if not boss_id:
+                continue
+            folded = _folded(boss_id, ids)
+            base_id = folded[1] if folded else boss_id
+            species.add(species_by_id.get(boss_id) or species_by_id.get(base_id) or base_id.removesuffix("_FORM"))
+            if folded and folded[0] == "gigantamax":
+                gigantamax.add(base_id)
+    return species, gigantamax
 
 # To be removed once we find a dynamic ones
 def _icon_keys(*sources):
@@ -135,45 +137,58 @@ def _strip_prefix(value, prefix):
     return value.removeprefix(prefix) if isinstance(value, str) else None
 
 
-async def load_names(database):
-    rows = await database.fetch("SELECT pokebattler_id, name_override FROM pokedex.pokemon_list WHERE name_override IS NOT NULL")
-    return {**DEFAULT_NAMES, **{row["pokebattler_id"]: row["name_override"] for row in rows}}
-
-
-def build_entries(pokemon_list, names, max_species=None):
+def build_entries(pokemon_list, names, max_battles=None):
     """
-    One dict per pokebattler ``pokemonId``. ``max_species`` is the set from ``max_species_from_raids``
+    One dict per pokebattler ``pokemonId``, except shadow and G-Max ids, which become tags on their base form.
+    ``max_battles`` is from ``max_battle_bosses``; None when it was unavailable (stored max-battle tags are kept).
     """
     pokemon_list = pokemon_list or []
     ids = {p.get("pokemonId") for p in pokemon_list if p.get("pokemonId")}
     species_ids = {i for i in ids if not i.endswith(("_FORM", "_GIGANTAMAX", "_PRIMAL")) and "_MEGA" not in i}
+    folded = {}
+    for pokemon_id in ids:
+        if found := _folded(pokemon_id, ids):
+            folded.setdefault(found[1], set()).add(found[0])
+    max_species, max_gigantamax = max_battles or (set(), set())
+    by_id = {p.get("pokemonId"): p for p in pokemon_list}
+    # Dynamax applies to the whole evolution line
+    family_of = {(p.get("pokedex") or {}).get("pokemonId") or p.get("pokemonId"): p.get("familyId") for p in pokemon_list}
+    max_families = {family_of.get(species) or species for species in max_species}
+    # A shadow anywhere in a non-legendary line makes the whole line shadow (shadows evolve into shadows).
+    shadow_families = {by_id[base].get("familyId") for base, kinds in folded.items() if "shadow" in kinds and base in by_id}
     entries = []
     for pokemon in pokemon_list:
         pokemon_id = pokemon.get("pokemonId")
         pokedex = pokemon.get("pokedex") or {}
         dex_num = pokedex.get("pokemonNum")
-        if not pokemon_id or not dex_num:
+        if not pokemon_id or not dex_num or _folded(pokemon_id, ids):
             continue
-        display, flags, alias = classify(pokemon_id, species_ids, names)
+        display, tags, alias = classify(pokemon_id, species_ids, names)
         species_id = pokedex.get("pokemonId") or pokemon_id
+        family = pokemon.get("familyId") or species_id
+        extra = folded.get(pokemon_id, set()) | ({"gigantamax"} if pokemon_id in max_gigantamax else set())
+        legendary = (by_id.get(species_id) or pokemon).get("rarity")  # legendary, mythic or ultra beast
+        if "mega" not in tags and not legendary and family in shadow_families:  # megas are never shadow
+            extra.add("shadow")
+        tags += sorted(extra)
+        if family in max_families:
+            tags.append("dynamax")
         stats = pokemon.get("stats") or {}
-        icons = _STATIC_MEGA_ICONS if flags["is_mega"] else _STATIC_ICONS
+        icons = _STATIC_MEGA_ICONS if "mega" in tags else _STATIC_ICONS
         entries.append({
             "pokemon_id": pokemon_id,
             "species_id": species_id,
             "dex_num": int(dex_num),
             "display_name": display,
-            "species_display": _species_display(species_id, names),
             "alias": alias,
             "icon_key": icons.get(normalize_key(display)) or f"{int(dex_num):03d}_00",
             "form": pokedex.get("form") or pokemon.get("form"),
-            "family_id": pokemon.get("familyId"),
             "parent_pokemon_id": pokemon.get("parentPokemonId"),
-            "type_1": _strip_prefix(pokemon.get("type"), "POKEMON_TYPE_"),
-            "type_2": _strip_prefix(pokemon.get("type2"), "POKEMON_TYPE_"),
+            "types": [t for t in (_strip_prefix(pokemon.get("type"), "POKEMON_TYPE_"),
+                                  _strip_prefix(pokemon.get("type2"), "POKEMON_TYPE_")) if t],
+            "tags": tags,
             "rarity": _strip_prefix(pokemon.get("rarity"), "POKEMON_RARITY_"),
-            **flags,
-            "can_dynamax": None if max_species is None else species_id in max_species,
+            "max_battles_known": max_battles is not None,
             "base_attack": stats.get("baseAttack"),
             "base_defense": stats.get("baseDefense"),
             "base_stamina": stats.get("baseStamina"),
@@ -189,39 +204,37 @@ def species_rows(entries):
         if current is None or (entry["pokemon_id"] == entry["species_id"] and current["pokemon_id"] != entry["species_id"]):
             species[entry["species_id"]] = entry
     return [
-        (species_id, e["dex_num"], e["species_display"], e["family_id"], e["rarity"], e["can_dynamax"])
+        (species_id, e["dex_num"], e["rarity"])
         for species_id, e in species.items()
     ]
 
 
 # The upserts never write ``overrides`` or manually added aliases, so hand edits survive every refresh.
 UPSERT_POKEMON_LIST = """
-INSERT INTO pokedex.pokemon_list(pokebattler_id, dex_num, display_name, family_id, rarity, can_dynamax)
-VALUES($1, $2, $3, $4, $5, COALESCE($6::boolean, FALSE))
+INSERT INTO pokedex.pokemon_list(pokebattler_id, dex_num, rarity)
+VALUES($1, $2, $3)
 ON CONFLICT (pokebattler_id) DO UPDATE SET
-  dex_num = EXCLUDED.dex_num, display_name = EXCLUDED.display_name, family_id = EXCLUDED.family_id,
-  rarity = EXCLUDED.rarity, can_dynamax = COALESCE($6::boolean, pokedex.pokemon_list.can_dynamax),
-  updated_at = now()
+  dex_num = EXCLUDED.dex_num, rarity = EXCLUDED.rarity, updated_at = now()
 """
 
-# $2 and $6 are pokebattler ids (the species, and the species it evolves from); they are swapped for row ids.
 UPSERT_POKEMON_FORMS = """
 INSERT INTO pokedex.pokemon_forms(pokebattler_id, species_id, display_name, icon_key, form, parent_species_id,
-                                  type_1, type_2, is_mega, is_shadow, is_gigantamax, is_cosmetic, aliases)
-SELECT $1::text, l.id, $3::text, $4::text, $5::text, parent.id, $7::text, $8::text,
-       $9::boolean, $10::boolean, $11::boolean, $12::boolean,
-       CASE WHEN $13::text IS NULL THEN '{}'::text[] ELSE ARRAY[$13::text] END
+                                  types, tags, aliases)
+SELECT $1::text, l.id, $3::text, $4::text, $5::text, parent.id, $7::text[], $8::text[],
+       CASE WHEN $9::text IS NULL THEN '{}'::text[] ELSE ARRAY[$9::text] END
 FROM pokedex.pokemon_list l
 LEFT JOIN pokedex.pokemon_list parent ON parent.pokebattler_id = $6::text
 WHERE l.pokebattler_id = $2::text
 ON CONFLICT (pokebattler_id) DO UPDATE SET
   species_id = EXCLUDED.species_id, display_name = EXCLUDED.display_name, icon_key = EXCLUDED.icon_key,
-  form = EXCLUDED.form, parent_species_id = EXCLUDED.parent_species_id, type_1 = EXCLUDED.type_1,
-  type_2 = EXCLUDED.type_2, is_mega = EXCLUDED.is_mega, is_shadow = EXCLUDED.is_shadow,
-  is_gigantamax = EXCLUDED.is_gigantamax, is_cosmetic = EXCLUDED.is_cosmetic, updated_at = now(),
-  aliases = CASE WHEN $13::text IS NULL OR $13::text = ANY(pokedex.pokemon_forms.aliases)
+  form = EXCLUDED.form, parent_species_id = EXCLUDED.parent_species_id, types = EXCLUDED.types,
+  updated_at = now(),
+  tags = CASE WHEN $10::boolean THEN $8::text[]
+              ELSE $8::text[] || ARRAY(SELECT t FROM unnest(pokedex.pokemon_forms.tags) AS t
+                                       WHERE t IN ('dynamax', 'gigantamax') AND t <> ALL($8::text[])) END,
+  aliases = CASE WHEN $9::text IS NULL OR $9::text = ANY(pokedex.pokemon_forms.aliases)
                  THEN pokedex.pokemon_forms.aliases
-                 ELSE array_append(pokedex.pokemon_forms.aliases, $13::text) END
+                 ELSE array_append(pokedex.pokemon_forms.aliases, $9::text) END
 """
 
 # $1 is the form's pokebattler id; it is swapped for the form's row id.
@@ -240,8 +253,7 @@ async def save_pokemon(database, entries):
     """Upsert species, forms (with their aliases) and base stats atomically (parents before children)."""
     form_rows = [(
         e["pokemon_id"], e["species_id"], e["display_name"], e["icon_key"], e["form"], e["parent_pokemon_id"],
-        e["type_1"], e["type_2"], e["is_mega"], e["is_shadow"], e["is_gigantamax"], e["is_cosmetic"],
-        e["alias"],
+        e["types"], e["tags"], e["alias"], e["max_battles_known"],
     ) for e in entries]
     stats_rows = [
         (e["pokemon_id"], e["base_attack"], e["base_defense"], e["base_stamina"])
@@ -260,15 +272,13 @@ LOAD_POKEMON = """
 SELECT pokebattler_id AS pokemon_id,
        COALESCE(overrides->>'display_name', display_name) AS display_name,
        COALESCE(overrides->>'icon_key', icon_key) AS icon_key,
-       is_mega,
-       COALESCE((overrides->>'is_cosmetic')::boolean, is_cosmetic) AS is_cosmetic,
+       'mega' = ANY(tags) AS is_mega,
        aliases
 FROM pokedex.pokemon_forms
-WHERE NOT is_shadow AND NOT is_gigantamax
 ORDER BY pokebattler_id
 """
 
-# (is_mega, is_cosmetic) -> {normalized name, id or alias: row}, rebuilt by ``load_cache``.
+# is_mega -> {normalized name, id or alias: row}, rebuilt by ``load_cache``.
 _index = {}
 
 
@@ -282,7 +292,7 @@ def _build_index(rows):
     )
     for spellings in spellings_of:
         for row in rows:
-            bucket = index.setdefault((row["is_mega"], row["is_cosmetic"]), {})
+            bucket = index.setdefault(row["is_mega"], {})
             for spelling in spellings(row):
                 bucket.setdefault(normalize_key(spelling), row)
     return index
@@ -298,13 +308,13 @@ async def load_cache(database):
 SUGGEST_MIN_RATIO = 75
 
 
-def find_pokemon(name, *, mega=False, costumes=False):
+def find_pokemon(name, *, mega=False):
     """Exact lookup (name, id or alias, ignoring case and punctuation). Row has pokemon_id, display_name, icon_key."""
-    return _index.get((mega, costumes), {}).get(normalize_key(name))
+    return _index.get(mega, {}).get(normalize_key(name))
 
 
 def suggest_pokemon(name, *, mega=False):
     """Display name of the closest spelling if it is similar enough to be a plausible typo, else None."""
-    bucket = _index.get((mega, False), {})
+    bucket = _index.get(mega, {})
     match = process.extractOne(normalize_key(name), list(bucket), scorer=fuzz.ratio, score_cutoff=SUGGEST_MIN_RATIO)
     return bucket[match[0]]["display_name"] if match else None
