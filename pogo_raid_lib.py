@@ -3,7 +3,8 @@ from discord.ext import commands
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
 from data.formats import *
-from data.pokemon import *
+from data.pokemon import POKEBATTLER_LINK, RAID_COUNTER_GUIDE
+from handlers.pokebattler.pokemon_lookup import find_pokemon, suggest_pokemon
 import handlers.helpers as H
 #from bot_lib import wrap_bot_dm
 import re
@@ -172,95 +173,19 @@ def format_invalid_tier_message(tier):
 """POKEMON NAME"""
 def validate_pokemon(pokemon_name, tier):
     pokemon_name = normalize_shadow_pokemon_name_for_lookup(pokemon_name)
-    is_valid = False
-    suggestion = ""
-    dex_num = 0
+    mega = "mega" in tier.lower()
+    match = find_pokemon(pokemon_name, mega=mega)
+    if match:
+        return (True, match["display_name"], "", match["icon_key"])
 
-    if "mega" in tier.lower():
-        for number, name in MEGA_DEX.items():
-            if pokemon_name == name.lower():
-                response = name.title()
-                dex_num = number
-                is_valid = True
-                break
-    #TODO we should not be iterating the whole list just to find the pokemon, instead we should 
-    else:
-        for number, name in NATIONAL_DEX.items():
-            if pokemon_name == name.lower():
-                response = name.title()
-                dex_num = number
-                is_valid = True
-                break
+    response, suggestion = format_invalid_pokemon_message(pokemon_name, mega)
+    return (False, response, suggestion, 0)
 
-        if not is_valid:
-            for number, name in GALARIAN_DEX.items():
-                if pokemon_name == name.lower():
-                    response = name.title()
-                    dex_num = number
-                    is_valid = True
-                    break
-
-        if not is_valid:
-            for number, name in ALOLAN_DEX.items():
-                if pokemon_name == name.lower():
-                    response = name.title()
-                    dex_num = number
-                    is_valid = True
-                    break
-
-        if not is_valid:
-            for number, name in ALTERNATE_FORME_DEX.items():
-                if pokemon_name == name.lower():
-                    response = name.title()
-                    dex_num = number
-                    is_valid = True
-                    break
-
-    if not is_valid:
-        response, suggestion = format_invalid_pokemon_message(pokemon_name, tier)
-
-    return (is_valid, response, suggestion, dex_num)
-
-def format_invalid_pokemon_message(pokemon_name, tier):
-    response = "You gave an invalid **Pokemon Name** of " + backtick_and_bracket(pokemon_name) + "."
-    best_ratio = 0
-    suggestion = ""
-
-    if "mega" in tier.lower():
-        for name in MEGA_DEX.values():
-            fuzz_ratio = fuzz.ratio(pokemon_name, name.lower())
-            if fuzz_ratio > best_ratio:
-                best_ratio = fuzz_ratio
-                suggestion = name.lower()
-    else:
-        for name in NATIONAL_DEX.values():
-            fuzz_ratio = fuzz.ratio(pokemon_name, name.lower())
-            if fuzz_ratio > best_ratio:
-                best_ratio = fuzz_ratio
-                suggestion = name.lower()
-
-        for name in GALARIAN_DEX.values():
-            fuzz_ratio = fuzz.ratio(pokemon_name, name.lower())
-            if fuzz_ratio > best_ratio:
-                best_ratio = fuzz_ratio
-                suggestion = name.lower()
-
-        for name in ALOLAN_DEX.values():
-            fuzz_ratio = fuzz.ratio(pokemon_name, name.lower())
-            if fuzz_ratio > best_ratio:
-                best_ratio = fuzz_ratio
-                suggestion = name.lower()
-
-        for name in ALTERNATE_FORME_DEX.values():
-            fuzz_ratio = fuzz.ratio(pokemon_name, name.lower())
-            if fuzz_ratio > best_ratio or fuzz_ratio == best_ratio:
-                best_ratio = fuzz_ratio
-                suggestion = name.lower()
-
-    response += "\n"
-
-    if best_ratio > 75:
-        response += "Did you mean " + backtick_and_bracket(suggestion.title()) + "?"
+def format_invalid_pokemon_message(pokemon_name, mega):
+    response = "You gave an invalid **Pokemon Name** of " + backtick_and_bracket(pokemon_name) + ".\n"
+    suggestion = suggest_pokemon(pokemon_name, mega=mega)
+    if suggestion:
+        response += "Did you mean " + backtick_and_bracket(suggestion) + "?"
     else:
         response += "Could not find a reliable close match based on given parameter " + backtick_and_bracket(pokemon_name)
         suggestion = pokemon_name

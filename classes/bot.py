@@ -39,6 +39,7 @@ class Bot(commands.Bot):
         self.loop.create_task(status_update_loop(self))
         self.loop.create_task(applicant_loop(self))
         self.loop.create_task(lobby_removal_loop(self))
+        self.loop.create_task(pokedex_refresh_loop(self))
         # do we wanna print to show everything is synced properly lol
         # just add print statement here if u want it
 
