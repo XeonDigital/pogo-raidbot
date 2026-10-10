@@ -3,7 +3,8 @@ import re
 import discord
 import asyncpg
 import handlers.helpers as H
-from pogo_raid_lib import build_image_link_github, validate_pokemon
+from handlers.pokebattler.pokemon_images import image_url
+from pogo_raid_lib import validate_pokemon
 
 check_valid_request_channel = """
  SELECT * FROM valid_request_channels where (channel_id = $1)
@@ -110,7 +111,7 @@ async def set_up_request_role_and_message(bot, interaction: discord.Interaction,
         print("[!] An error occurred giving a user a role: [{}]".format(error))
         return
     new_embed = discord.Embed(title=pokemon_name.title(), description="")
-    new_embed.set_thumbnail(url=build_image_link_github(number))
+    new_embed.set_thumbnail(url=image_url(number))
     new_embed.add_field(name="Number of players requesting", value=str(1))
     new_embed.add_field(name="Want to be pinged for raids?", value="📬 Add Role\n📪 Remove Role", inline=False)
 

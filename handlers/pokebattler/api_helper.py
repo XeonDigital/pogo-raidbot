@@ -134,7 +134,7 @@ async def get_counter(bot, interaction: discord.Interaction, tier, name, weather
         return
 
     embed = await bot.dex.get_counter_for(bot, name, tier, weather)
-    embed_thumbnail = build_image_link_github(dex_num)
+    embed_thumbnail = image_url(dex_num)
     embed.set_thumbnail(url=embed_thumbnail)
     try:
         await interaction.channel.send(embed=embed)

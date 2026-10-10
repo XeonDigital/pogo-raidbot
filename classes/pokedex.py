@@ -7,6 +7,7 @@ from discord.ext import commands
 from data import formats as F
 from handlers.pokebattler import api_helper as AH
 from handlers.pokebattler import pokebattler_api as API
+from handlers.pokebattler.pokemon_images import fetch_asset_index
 from handlers.pokebattler.pokemon_lookup import DEFAULT_NAMES, build_entries, find_pokemon, load_cache, max_battle_bosses, save_pokemon
 from pogo_raid_lib import normalize_shadow_pokemon_name_for_lookup
 
@@ -23,16 +24,21 @@ class Pokedex():
         try:
             max_battles = max_battle_bosses(API.fetch_raids(), self.pokemon)
         except Exception as error:
-            print(f"[!] Could not fetch max battles ({type(error).__name__}); keeping the stored dynamax / gigantamax tags.")
+            print(f"[!] Could not fetch max battles ({type(error).__name__}); keeping the stored dynamax tags.")
             max_battles = None
-        self.pending_pokemon = (self.pokemon, max_battles)
+        try:
+            assets = fetch_asset_index()
+        except Exception as error:
+            print(f"[!] Could not fetch the sprite listings ({type(error).__name__}); keeping the stored sprite keys.")
+            assets = None
+        self.pending_pokemon = (self.pokemon, max_battles, assets)
 
     async def sync_pokemon_list(self, database):
         """Save the staged pokemon, then reload the lookup cache with retry mechanism"""
         try:
             if self.pending_pokemon:
-                pokemon, max_battles = self.pending_pokemon
-                entries = build_entries(pokemon, DEFAULT_NAMES, max_battles)
+                pokemon, max_battles, assets = self.pending_pokemon
+                entries = build_entries(pokemon, DEFAULT_NAMES, max_battles, assets)
                 saved = await save_pokemon(database, entries)
                 self.pending_pokemon = None
                 print(f"[i] Saved {saved} pokemon forms to the database.")
