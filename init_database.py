@@ -135,6 +135,7 @@ CREATE TABLE IF NOT EXISTS pokedex.pokemon_forms(
   species_id        INTEGER NOT NULL REFERENCES pokedex.pokemon_list(id),
   display_name      TEXT NOT NULL,
   icon_key          TEXT NOT NULL,
+  shiny_icon_key    TEXT,
   form              TEXT,
   parent_species_id INTEGER REFERENCES pokedex.pokemon_list(id),
   types             TEXT[] NOT NULL DEFAULT '{}',
@@ -157,12 +158,6 @@ CREATE TABLE IF NOT EXISTS pokedex.pokemon_stats(
 );
 '''
 
-# Existing databases may predate these columns; CREATE TABLE IF NOT EXISTS will not add them.
-RAID_LOBBY_CATEGORY_MIGRATIONS = [
-    'ALTER TABLE raid_lobby_category ADD COLUMN IF NOT EXISTS management_channel_id BIGINT;',
-    'ALTER TABLE raid_lobby_category ADD COLUMN IF NOT EXISTS management_message_id BIGINT;',
-]
-
 
 async def initialize_database():
   conn = await asyncpg.connect(database=os.getenv('DATABASE'),
@@ -177,8 +172,6 @@ async def initialize_database():
   await conn.execute(TRAINER_DATA)
   await conn.execute(RAID_APPLICATIONS)
   await conn.execute(RAID_LOBBY_CATEGORY)
-  for migration in RAID_LOBBY_CATEGORY_MIGRATIONS:
-    await conn.execute(migration)
   await conn.execute(REQUEST_CHANNELS)
   await conn.execute(RECENT_PARTICIPATION_TABLE)
   await conn.execute(REQUEST_TABLE)

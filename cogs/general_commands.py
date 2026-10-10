@@ -9,8 +9,14 @@ from discord.ext import commands
 
 import handlers.friend_code_handler as FCH
 import handlers.pokebattler.api_helper as APIH
+import handlers.pokebattler.pokebattler_dex as DEX
 import handlers.raid_lobby_handler as RLH
 import handlers.raid_lobby_management as RLM
+
+DEX_TYPES = ("BUG", "DARK", "DRAGON", "ELECTRIC", "FAIRY", "FIGHTING", "FIRE", "FLYING", "GHOST",
+             "GRASS", "GROUND", "ICE", "NORMAL", "POISON", "PSYCHIC", "ROCK", "STEEL", "WATER")
+DEX_FORM_CHOICES = [app_commands.Choice(name=option.title(), value=option) for option in DEX.TAG_FILTERS]
+
 
 class GeneralCommands(commands.Cog):
     """General Commands Cog"""
@@ -51,10 +57,31 @@ class GeneralCommands(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         await FCH.send_trainer_information(interaction, self.__bot, user_id)
 
-    @app_commands.command(name="dex", description="Retrieves Pokedex information for a Pokedex number or Pokemon Name.")
-    async def dex(self, interaction: discord.Interaction, arg1: str = "None", arg2: str = "None"):
+    @app_commands.command(name="dex", description="List Pokemon forms by name or dex number, with optional filters.")
+    @app_commands.describe(
+        name="Pokemon name, alias or dex number (lists all of its forms)",
+        only="Only list these forms",
+        hide="Leave these forms out",
+        type="Only forms with this type",
+        rarity="Only legendary, mythic or ultra beast species",
+        shiny="Show shiny sprites",
+    )
+    @app_commands.choices(
+        only=DEX_FORM_CHOICES,
+        hide=DEX_FORM_CHOICES,
+        type=[app_commands.Choice(name=t.title(), value=t) for t in DEX_TYPES],
+        rarity=[app_commands.Choice(name=r.replace("_", " ").title(), value=r) for r in ("LEGENDARY", "MYTHIC", "ULTRA_BEAST")],
+        shiny=[app_commands.Choice(name="Yes", value=1), app_commands.Choice(name="No", value=0)],
+    )
+    async def dex(self, interaction: discord.Interaction, name: Optional[str] = None,
+                  only: Optional[app_commands.Choice[str]] = None, hide: Optional[app_commands.Choice[str]] = None,
+                  type: Optional[app_commands.Choice[str]] = None, rarity: Optional[app_commands.Choice[str]] = None,
+                  shiny: Optional[app_commands.Choice[int]] = None):
         await interaction.response.defer(ephemeral=True)
-        await APIH.retrieve_pokedex_data(self.__bot, interaction, arg1, arg2)
+        await DEX.send_dex(self.__bot, interaction, name,
+                           only=only.value if only else None, hide=hide.value if hide else None,
+                           type_=type.value if type else None, rarity=rarity.value if rarity else None,
+                           shiny=bool(shiny and shiny.value))
 
     @app_commands.command(name="counter", description="Get counters for a raid boss.")
     async def counter(self, interaction: discord.Interaction, tier: str = "None", name: str = "None", weather: str = "Clear"):
