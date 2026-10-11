@@ -6,8 +6,10 @@ from handlers.pokebattler.pokemon_lookup import (
     DEFAULT_NAMES,
     _build_index,
     _folded,
+    build_entries,
     classify,
     find_pokemon,
+    max_battle_bosses,
     normalize_key,
     suggest_pokemon,
 )
@@ -28,7 +30,28 @@ SPECIES_IDS = {
     "CHARIZARD",
     "VENUSAUR",
     "RATTATA",
+    "ZORUA",
+    "WOOPER",
+    "LANDORUS",
 }
+
+
+def pokebattler_mon(pokemon_id, dex_num, species=None, family=None, rarity=None,
+                    type_="NORMAL", type2=None, stats=None, form=None):
+    species = species or pokemon_id
+    return {
+        "pokemonId": pokemon_id,
+        "pokedex": {"pokemonId": species, "pokemonNum": dex_num, "form": form},
+        "familyId": family or species,
+        "rarity": rarity,
+        "type": f"POKEMON_TYPE_{type_}" if type_ else None,
+        "type2": f"POKEMON_TYPE_{type2}" if type2 else None,
+        "stats": stats or {"baseAttack": 1, "baseDefense": 1, "baseStamina": 1},
+    }
+
+
+def entries_by_id(entries):
+    return {entry["pokemon_id"]: entry for entry in entries}
 
 
 @pytest.fixture
@@ -120,6 +143,26 @@ def test_classify_gigantamax_and_regional():
         ["regional"],
         None,
     )
+    assert classify("ZORUA_HISUIAN_FORM", SPECIES_IDS, {}) == (
+        "Hisuian-Zorua",
+        ["regional"],
+        None,
+    )
+    assert classify("WOOPER_PALDEA_FORM", SPECIES_IDS, {}) == (
+        "Paldean-Wooper",
+        ["regional"],
+        None,
+    )
+    assert classify("NINETALES_ALOLA_HAT_FORM", SPECIES_IDS, {}) == (
+        "Alolan-Ninetales-Hat",
+        ["regional"],
+        "Alolan-Ninetales",
+    )
+    assert classify("LANDORUS_THERIAN_FORM", SPECIES_IDS, {}) == (
+        "Landorus-Therian",
+        [],
+        "Therian Landorus",
+    )
 
 
 def test_folded_shadow_maps_to_base_or_form_id():
@@ -129,6 +172,83 @@ def test_folded_shadow_maps_to_base_or_form_id():
         "RATTATA_ALOLA_FORM",
     )
     assert _folded("MEWTWO", {"MEWTWO"}) is None
+
+
+def test_max_battle_bosses_only_counts_max_tiers():
+    pokemon_list = [
+        pokebattler_mon("WOOLOO", 831),
+        pokebattler_mon("CHARIZARD", 6),
+        pokebattler_mon("MEWTWO", 150, rarity="POKEMON_RARITY_LEGENDARY"),
+    ]
+    payload = {
+        "tiers": [
+            {"tier": "RAID_LEVEL_5", "raids": [{"pokemon": "MEWTWO"}]},
+            {"tier": "RAID_LEVEL_1_MAX", "raids": [{"pokemon": "WOOLOO"}]},
+            {"tier": "RAID_LEVEL_3_MAX", "raids": [{"pokemonId": "CHARIZARD"}]},
+        ]
+    }
+    bosses = max_battle_bosses(payload, pokemon_list)
+    assert "WOOLOO" in bosses
+    assert "CHARIZARD" in bosses
+    assert "MEWTWO" not in bosses
+    assert not max_battle_bosses(None, pokemon_list)
+    assert not max_battle_bosses({"tiers": []}, None)
+
+
+def test_build_entries_skips_shadow_rows_and_tags_families():
+    stats = {"baseAttack": 10, "baseDefense": 10, "baseStamina": 10}
+    costume_stats = dict(stats)
+    different_stats = {"baseAttack": 99, "baseDefense": 10, "baseStamina": 10}
+    pokemon_list = [
+        pokebattler_mon("RATTATA", 19, stats=stats),
+        pokebattler_mon("RATTATA_SHADOW_FORM", 19, species="RATTATA", family="RATTATA", stats=stats),
+        pokebattler_mon("RATTATA_SANTA_HAT_FORM", 19, species="RATTATA", family="RATTATA",
+                        form="RATTATA_SANTA_HAT_FORM", stats=costume_stats),
+        pokebattler_mon("RATTATA_ARMORED_FORM", 19, species="RATTATA", family="RATTATA",
+                        form="RATTATA_ARMORED_FORM", stats=different_stats),
+        pokebattler_mon("MEWTWO", 150, rarity="POKEMON_RARITY_LEGENDARY", stats=stats),
+        pokebattler_mon("MEWTWO_SHADOW_FORM", 150, species="MEWTWO", family="MEWTWO",
+                        rarity="POKEMON_RARITY_LEGENDARY", stats=stats),
+        pokebattler_mon("MEWTWO_ARMORED_FORM", 150, species="MEWTWO", family="MEWTWO",
+                        rarity="POKEMON_RARITY_LEGENDARY", form="MEWTWO_ARMORED_FORM", stats=different_stats),
+        pokebattler_mon("CHARIZARD", 6, family="FAMILY_CHARMANDER", stats=stats),
+        pokebattler_mon("CHARIZARD_SHADOW_FORM", 6, species="CHARIZARD", family="FAMILY_CHARMANDER", stats=stats),
+        pokebattler_mon("CHARIZARD_MEGA_X", 6, species="CHARIZARD", family="FAMILY_CHARMANDER", stats=stats),
+        pokebattler_mon("VENUSAUR_GIGANTAMAX", 3, species="VENUSAUR", family="FAMILY_BULBASAUR", stats=stats),
+        pokebattler_mon("VENUSAUR", 3, family="FAMILY_BULBASAUR", stats=stats),
+        {"pokemonId": "MISSING_DEX", "pokedex": {}},
+        {"pokedex": {"pokemonNum": 1, "pokemonId": "BULBASAUR"}},
+    ]
+    entries = build_entries(
+        pokemon_list,
+        DEFAULT_NAMES,
+        max_battles={"CHARIZARD", "VENUSAUR"},
+    )
+    by_id = entries_by_id(entries)
+
+    assert "RATTATA_SHADOW_FORM" not in by_id
+    assert "MEWTWO_SHADOW_FORM" not in by_id
+    assert "CHARIZARD_SHADOW_FORM" not in by_id
+    assert "MISSING_DEX" not in by_id
+    assert "BULBASAUR" not in by_id
+
+    assert "shadow" in by_id["RATTATA"]["tags"]
+    assert "cosmetic" in by_id["RATTATA_SANTA_HAT_FORM"]["tags"]
+    assert "shadow" in by_id["RATTATA_SANTA_HAT_FORM"]["tags"]
+    assert "cosmetic" not in by_id["RATTATA_ARMORED_FORM"]["tags"]
+
+    assert "shadow" in by_id["MEWTWO"]["tags"]
+    assert "shadow" not in by_id["MEWTWO_ARMORED_FORM"]["tags"]
+
+    assert "shadow" in by_id["CHARIZARD"]["tags"]
+    assert "dynamax" in by_id["CHARIZARD"]["tags"]
+    assert "shadow" not in by_id["CHARIZARD_MEGA_X"]["tags"]
+    assert "dynamax" not in by_id["CHARIZARD_MEGA_X"]["tags"]
+    assert "mega" in by_id["CHARIZARD_MEGA_X"]["tags"]
+
+    assert "dynamax" in by_id["VENUSAUR"]["tags"]
+    assert "dynamax" not in by_id["VENUSAUR_GIGANTAMAX"]["tags"]
+    assert "gigantamax" in by_id["VENUSAUR_GIGANTAMAX"]["tags"]
 
 
 def test_normalize_shadow_name_strips_shadow_and_keeps_hyphens_otherwise():

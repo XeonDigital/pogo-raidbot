@@ -27,10 +27,6 @@ def fetch_moves():
     data, _ = retrieve_data_from_api("https://fight.pokebattler.com/moves", None)
     return data['move']
 
-def fetch_rankings():
-    data, _ = retrieve_data_from_api("https://static.pokebattler.com/raidSummaries.json", None)
-    return data
-
 valid_tiers = [
     "RAID_LEVEL_1",
     "RAID_LEVEL_3",
