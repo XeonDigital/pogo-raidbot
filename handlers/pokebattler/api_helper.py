@@ -1,7 +1,8 @@
 import discord
 
 import asyncio
-import data.formats as F
+from pathlib import Path
+
 from pogo_raid_lib import *
 
 tab_count = -1
@@ -74,14 +75,46 @@ value_from_arg ={
     "rarity":lambda entry: entry.get("rarity").split("_").pop(2).title()
 }
 
-async def move_to_readable(bot, movenum, move):
-    move_name = move.get("moveId").replace("_FAST","")
-    move_name = move_name.replace("_", " ").title()
-    
-    move_type = move.get("type").split("_").pop()
-    icon = await bot.fetch_application_emoji(int(F.TYPE_TO_EMOJI.get(move_type)))
+TYPE_ICON_DIR = Path(__file__).resolve().parents[2] / "assets" / "pokemon_types"
 
-    return f"<:{icon.name}:{icon.id}> {move_name}"
+_type_emojis = None
+
+
+async def type_emojis(bot):
+    global _type_emojis
+    if _type_emojis is None:
+        try:
+            emojis = {emoji.name: str(emoji) for emoji in await bot.fetch_application_emojis()}
+            for icon in TYPE_ICON_DIR.glob("ico_*.png"):
+                name = f"type_{icon.stem.rsplit('_', 1)[-1]}"
+                if name not in emojis:
+                    emojis[name] = str(await bot.create_application_emoji(name=name, image=icon.read_bytes()))
+        except discord.DiscordException as error:
+            print(f"[!] Could not set up the type emojis ({type(error).__name__}: {error}).")
+            return {}
+        _type_emojis = {name.removeprefix("type_").upper(): markup
+                        for name, markup in emojis.items() if name.startswith("type_")}
+    return _type_emojis
+
+
+def move_name(move_id):
+    name = move_id.removesuffix("_FAST")
+    plus = name.endswith("_PLUS")
+    name = name.removesuffix("_PLUS").replace("_", " ").title()
+    return f"{name}+" if plus else name
+
+
+def move_text(move, emojis):
+    if not move:
+        return "?"
+    emoji = emojis.get(move["type"].removeprefix("POKEMON_TYPE_"))
+    return f"{emoji} {move_name(move['moveId'])}" if emoji else move_name(move["moveId"])
+
+
+def counter_moves(counter, emojis):
+    """[fast, charged] move text for one of ``Pokedex.get_counter_data``'s counters."""
+    moves = counter.get("byMove") or {}
+    return [move_text(moves.get("move1"), emojis), move_text(moves.get("move2"), emojis)]
 
 form_converter = {
     "ALOLA":"Alolan",

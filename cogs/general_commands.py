@@ -10,6 +10,7 @@ from discord.ext import commands
 import handlers.friend_code_handler as FCH
 import handlers.pokebattler.api_helper as APIH
 import handlers.pokebattler.pokebattler_dex as DEX
+import handlers.pokebattler.raid_schedule as RS
 import handlers.raid_lobby_handler as RLH
 import handlers.raid_lobby_management as RLM
 
@@ -171,6 +172,11 @@ class GeneralCommands(commands.Cog):
         else:
             embed.description = "No raid bosses cached. Try `/refresh_raids`."
         await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="weekly_raids", description="This week's and next week's raid bosses, with counters.")
+    async def weekly_raids(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
+        await RS.send_weekly_raids(self.__bot, interaction)
 
     @app_commands.command(name="refresh_raids", description="Refresh the cached raids list from Pokebattler.")
     @app_commands.default_permissions(manage_messages=True)

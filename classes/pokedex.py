@@ -8,7 +8,7 @@ from data import formats as F
 from handlers.pokebattler import api_helper as AH
 from handlers.pokebattler import pokebattler_api as API
 from handlers.pokebattler.pokemon_images import fetch_asset_index
-from handlers.pokebattler.pokemon_lookup import DEFAULT_NAMES, build_entries, find_pokemon, load_cache, max_battle_bosses, save_pokemon
+from handlers.pokebattler.pokemon_lookup import DEFAULT_NAMES, build_entries, display_pokemon, find_pokemon, load_cache, max_battle_bosses, save_pokemon
 from pogo_raid_lib import normalize_shadow_pokemon_name_for_lookup
 
 class Pokedex():
@@ -183,14 +183,10 @@ class Pokedex():
         embed = discord.Embed(title=name.replace("-", " ").title(), description="Recommended counters and moves ", url=link)
         embed.add_field(name="Weather", value=F.WEATHER_TO_EMOJI.get(weather.lower()), inline=False)
         embed.add_field(name="Counters", value="With a **random moveset** and the above weather, here are the recommended counters.", inline=False)
-        name_getter = AH.value_from_arg.get("name")
-        counter = 1
-        for pokemon in result:
-            moves = pokemon.get("byMove")
-            value = "\n".join([await AH.move_to_readable(bot, movenum, move) for movenum,move in moves.items() if movenum == "move1" or movenum == "move2"])
-            name = name_getter(pokemon)
-            embed.add_field(name=f"{counter}) {name}", value=value, inline=True)
-            counter += 1
+        emojis = await AH.type_emojis(bot)
+        for rank, counter in enumerate(result, start=1):
+            name, _ = display_pokemon(counter["pokemonId"])
+            embed.add_field(name=f"{rank}) {name}", value="\n".join(AH.counter_moves(counter, emojis)), inline=True)
         return embed
 
     def convert_name_to_id(self, name, tier):
