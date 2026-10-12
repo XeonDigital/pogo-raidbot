@@ -1,7 +1,11 @@
+from types import SimpleNamespace
+
 import pytest
 
 from classes.pokedex import Pokedex
 from handlers.pokebattler import pokemon_lookup as lookup
+from handlers.pokebattler.api_helper import format_pokemon_name
+from handlers.pokebattler.pokemon_images import image_url
 from handlers.pokebattler.pokemon_lookup import (
     DEFAULT_NAMES,
     _build_index,
@@ -11,10 +15,13 @@ from handlers.pokebattler.pokemon_lookup import (
     find_pokemon,
     max_battle_bosses,
     normalize_key,
+    species_rows,
     suggest_pokemon,
 )
+from handlers.pokebattler.pokebattler_api import filter_current_raids
 from pogo_raid_lib import (
     normalize_shadow_pokemon_name_for_lookup,
+    validate_and_format_message,
     validate_invites_argument,
     validate_pokemon,
     validate_tier,
@@ -28,11 +35,19 @@ SPECIES_IDS = {
     "MR_MIME",
     "NINETALES",
     "CHARIZARD",
+    "CHARMANDER",
     "VENUSAUR",
+    "BULBASAUR",
     "RATTATA",
     "ZORUA",
     "WOOPER",
     "LANDORUS",
+    "PIKACHU",
+    "GENGAR",
+    "SABLEYE",
+    "SQUIRTLE",
+    "FALINKS",
+    "LAPRAS",
 }
 
 
@@ -96,6 +111,62 @@ def pokemon_index():
             "shiny_icon_key": None,
             "is_mega": False,
             "aliases": ["Gmax Venusaur"],
+        },
+        {
+            "pokemon_id": "PIKACHU",
+            "display_name": "Pikachu",
+            "icon_key": "go:pm25",
+            "shiny_icon_key": None,
+            "is_mega": False,
+            "aliases": [],
+        },
+        {
+            "pokemon_id": "PIKACHU_POP_STAR_FORM",
+            "display_name": "Pikachu-Pop-Star",
+            "icon_key": "go:pm25",
+            "shiny_icon_key": None,
+            "is_mega": False,
+            "aliases": ["Pop Star Pikachu"],
+        },
+        {
+            "pokemon_id": "PIKACHU_DOCTOR_FORM",
+            "display_name": "Pikachu-Doctor",
+            "icon_key": "go:pm25",
+            "shiny_icon_key": None,
+            "is_mega": False,
+            "aliases": ["Doctor Pikachu"],
+        },
+        {
+            "pokemon_id": "PIKACHU_ADVENTURE_HAT_2020_FORM",
+            "display_name": "Pikachu-Adventure-Hat-2020",
+            "icon_key": "go:pm25",
+            "shiny_icon_key": None,
+            "is_mega": False,
+            "aliases": ["Adventure Hat 2020 Pikachu"],
+        },
+        {
+            "pokemon_id": "GENGAR_COSTUME_2020_FORM",
+            "display_name": "Gengar-Costume-2020",
+            "icon_key": "go:pm94",
+            "shiny_icon_key": None,
+            "is_mega": False,
+            "aliases": ["Costume 2020 Gengar"],
+        },
+        {
+            "pokemon_id": "SQUIRTLE_FALL_2019_FORM",
+            "display_name": "Squirtle-Fall-2019",
+            "icon_key": "go:pm7",
+            "shiny_icon_key": None,
+            "is_mega": False,
+            "aliases": ["Fall 2019 Squirtle"],
+        },
+        {
+            "pokemon_id": "FALINKS_GOFEST_2025_TRAIN_CONDUCTOR_FORM",
+            "display_name": "Falinks-Gofest-2025-Train-Conductor",
+            "icon_key": "go:pm870",
+            "shiny_icon_key": None,
+            "is_mega": False,
+            "aliases": ["Gofest 2025 Train Conductor Falinks"],
         },
     ]
     previous = lookup._index
@@ -162,6 +233,69 @@ def test_classify_gigantamax_and_regional():
         "Landorus-Therian",
         [],
         "Therian Landorus",
+    )
+
+
+def test_classify_costume_forms():
+    assert classify("PIKACHU_POP_STAR_FORM", SPECIES_IDS, {}) == (
+        "Pikachu-Pop-Star",
+        [],
+        "Pop Star Pikachu",
+    )
+    assert classify("PIKACHU_ROCK_STAR_FORM", SPECIES_IDS, {}) == (
+        "Pikachu-Rock-Star",
+        [],
+        "Rock Star Pikachu",
+    )
+    assert classify("PIKACHU_DOCTOR_FORM", SPECIES_IDS, {}) == (
+        "Pikachu-Doctor",
+        [],
+        "Doctor Pikachu",
+    )
+    assert classify("PIKACHU_ADVENTURE_HAT_2020_FORM", SPECIES_IDS, {}) == (
+        "Pikachu-Adventure-Hat-2020",
+        [],
+        "Adventure Hat 2020 Pikachu",
+    )
+    assert classify("PIKACHU_FALL_2019_FORM", SPECIES_IDS, {}) == (
+        "Pikachu-Fall-2019",
+        [],
+        "Fall 2019 Pikachu",
+    )
+    assert classify("SQUIRTLE_FALL_2019_FORM", SPECIES_IDS, {}) == (
+        "Squirtle-Fall-2019",
+        [],
+        "Fall 2019 Squirtle",
+    )
+    assert classify("CHARMANDER_FALL_2019_FORM", SPECIES_IDS, {}) == (
+        "Charmander-Fall-2019",
+        [],
+        "Fall 2019 Charmander",
+    )
+    assert classify("BULBASAUR_FALL_2019_FORM", SPECIES_IDS, {}) == (
+        "Bulbasaur-Fall-2019",
+        [],
+        "Fall 2019 Bulbasaur",
+    )
+    assert classify("GENGAR_COSTUME_2020_FORM", SPECIES_IDS, {}) == (
+        "Gengar-Costume-2020",
+        [],
+        "Costume 2020 Gengar",
+    )
+    assert classify("SABLEYE_COSTUME_2020_FORM", SPECIES_IDS, {}) == (
+        "Sableye-Costume-2020",
+        [],
+        "Costume 2020 Sableye",
+    )
+    assert classify("LAPRAS_COSTUME_2020_FORM", SPECIES_IDS, {}) == (
+        "Lapras-Costume-2020",
+        [],
+        "Costume 2020 Lapras",
+    )
+    assert classify("FALINKS_GOFEST_2025_TRAIN_CONDUCTOR_FORM", SPECIES_IDS, {}) == (
+        "Falinks-Gofest-2025-Train-Conductor",
+        [],
+        "Gofest 2025 Train Conductor Falinks",
     )
 
 
@@ -251,6 +385,53 @@ def test_build_entries_skips_shadow_rows_and_tags_families():
     assert "gigantamax" in by_id["VENUSAUR_GIGANTAMAX"]["tags"]
 
 
+def test_build_entries_tags_real_costumes_as_cosmetic():
+    pikachu_stats = {"baseAttack": 112, "baseDefense": 96, "baseStamina": 111}
+    gengar_stats = {"baseAttack": 261, "baseDefense": 149, "baseStamina": 155}
+    squirtle_stats = {"baseAttack": 94, "baseDefense": 121, "baseStamina": 127}
+    falinks_stats = {"baseAttack": 193, "baseDefense": 170, "baseStamina": 163}
+    pokemon_list = [
+        pokebattler_mon("PIKACHU", 25, family="FAMILY_PIKACHU", type_="ELECTRIC", stats=pikachu_stats),
+        pokebattler_mon("PIKACHU_SHADOW_FORM", 25, species="PIKACHU", family="FAMILY_PIKACHU",
+                        type_="ELECTRIC", stats=pikachu_stats),
+        pokebattler_mon("PIKACHU_POP_STAR_FORM", 25, species="PIKACHU", family="FAMILY_PIKACHU",
+                        form="PIKACHU_POP_STAR", type_="ELECTRIC", stats=pikachu_stats),
+        pokebattler_mon("PIKACHU_DOCTOR_FORM", 25, species="PIKACHU", family="FAMILY_PIKACHU",
+                        form="PIKACHU_DOCTOR", type_="ELECTRIC", stats=pikachu_stats),
+        pokebattler_mon("PIKACHU_ADVENTURE_HAT_2020_FORM", 25, species="PIKACHU", family="FAMILY_PIKACHU",
+                        form="PIKACHU_ADVENTURE_HAT_2020", type_="ELECTRIC", stats=pikachu_stats),
+        pokebattler_mon("GENGAR", 94, family="FAMILY_GASTLY", type_="GHOST", type2="POISON", stats=gengar_stats),
+        pokebattler_mon("GENGAR_COSTUME_2020_FORM", 94, species="GENGAR", family="FAMILY_GASTLY",
+                        form="GENGAR_COSTUME_2020", type_="GHOST", type2="POISON", stats=gengar_stats),
+        pokebattler_mon("SQUIRTLE", 7, family="FAMILY_SQUIRTLE", type_="WATER", stats=squirtle_stats),
+        pokebattler_mon("SQUIRTLE_FALL_2019_FORM", 7, species="SQUIRTLE", family="FAMILY_SQUIRTLE",
+                        form="SQUIRTLE_FALL_2019", type_="WATER", stats=squirtle_stats),
+        pokebattler_mon("FALINKS", 870, family="FAMILY_FALINKS", type_="FIGHTING", stats=falinks_stats),
+        pokebattler_mon("FALINKS_GOFEST_2025_TRAIN_CONDUCTOR_FORM", 870, species="FALINKS",
+                        family="FAMILY_FALINKS", form="FALINKS_GOFEST_2025_TRAIN_CONDUCTOR",
+                        type_="FIGHTING", stats=falinks_stats),
+    ]
+    entries = build_entries(pokemon_list, DEFAULT_NAMES)
+    by_id = entries_by_id(entries)
+
+    assert "PIKACHU_SHADOW_FORM" not in by_id
+    assert "cosmetic" not in by_id["PIKACHU"]["tags"]
+    assert "shadow" in by_id["PIKACHU"]["tags"]
+    assert "cosmetic" in by_id["PIKACHU_POP_STAR_FORM"]["tags"]
+    assert "shadow" in by_id["PIKACHU_POP_STAR_FORM"]["tags"]
+    assert by_id["PIKACHU_POP_STAR_FORM"]["display_name"] == "Pikachu-Pop-Star"
+    assert by_id["PIKACHU_POP_STAR_FORM"]["alias"] == "Pop Star Pikachu"
+    assert "cosmetic" in by_id["PIKACHU_DOCTOR_FORM"]["tags"]
+    assert "cosmetic" in by_id["PIKACHU_ADVENTURE_HAT_2020_FORM"]["tags"]
+    assert "cosmetic" in by_id["GENGAR_COSTUME_2020_FORM"]["tags"]
+    assert "shadow" not in by_id["GENGAR_COSTUME_2020_FORM"]["tags"]
+    assert "cosmetic" in by_id["SQUIRTLE_FALL_2019_FORM"]["tags"]
+    assert "cosmetic" in by_id["FALINKS_GOFEST_2025_TRAIN_CONDUCTOR_FORM"]["tags"]
+    assert by_id["FALINKS_GOFEST_2025_TRAIN_CONDUCTOR_FORM"]["alias"] == (
+        "Gofest 2025 Train Conductor Falinks"
+    )
+
+
 def test_normalize_shadow_name_strips_shadow_and_keeps_hyphens_otherwise():
     assert normalize_shadow_pokemon_name_for_lookup("shadow mewtwo") == "mewtwo"
     assert normalize_shadow_pokemon_name_for_lookup("SHADOW-MEWTWO") == "mewtwo"
@@ -269,6 +450,20 @@ def test_find_pokemon_matches_name_id_and_alias(pokemon_index):
     assert find_pokemon("charizard-x") is None
     assert find_pokemon("charizard-x", mega=True)["pokemon_id"] == "CHARIZARD_MEGA_X"
     assert find_pokemon("missingno") is None
+
+
+def test_find_pokemon_matches_costume_name_id_and_alias(pokemon_index):
+    assert find_pokemon("Pikachu")["pokemon_id"] == "PIKACHU"
+    assert find_pokemon("pikachu-pop-star")["pokemon_id"] == "PIKACHU_POP_STAR_FORM"
+    assert find_pokemon("pop star pikachu")["display_name"] == "Pikachu-Pop-Star"
+    assert find_pokemon("PIKACHU_POP_STAR")["pokemon_id"] == "PIKACHU_POP_STAR_FORM"
+    assert find_pokemon("doctor pikachu")["pokemon_id"] == "PIKACHU_DOCTOR_FORM"
+    assert find_pokemon("adventure hat 2020 pikachu")["pokemon_id"] == "PIKACHU_ADVENTURE_HAT_2020_FORM"
+    assert find_pokemon("gengar-costume-2020")["pokemon_id"] == "GENGAR_COSTUME_2020_FORM"
+    assert find_pokemon("fall 2019 squirtle")["pokemon_id"] == "SQUIRTLE_FALL_2019_FORM"
+    assert find_pokemon("gofest 2025 train conductor falinks")["pokemon_id"] == (
+        "FALINKS_GOFEST_2025_TRAIN_CONDUCTOR_FORM"
+    )
 
 
 def test_suggest_pokemon_needs_a_close_spelling(pokemon_index):
@@ -295,9 +490,33 @@ def test_validate_pokemon_uses_lookup_and_strips_shadow(pokemon_index):
     assert icon == 0
 
 
+def test_validate_pokemon_accepts_costume_spellings(pokemon_index):
+    ok, name, suggestion, icon = validate_pokemon("pop star pikachu", "1")
+    assert ok is True
+    assert name == "Pikachu-Pop-Star"
+    assert suggestion == ""
+    assert icon == "go:pm25"
+
+    ok, name, suggestion, _ = validate_pokemon("doctor pikachu", "1")
+    assert ok is True
+    assert name == "Pikachu-Doctor"
+
+    ok, name, suggestion, _ = validate_pokemon("costume 2020 gengar", "3")
+    assert ok is True
+    assert name == "Gengar-Costume-2020"
+
+    ok, name, suggestion, _ = validate_pokemon("fall 2019 squirtle", "1")
+    assert ok is True
+    assert name == "Squirtle-Fall-2019"
+
+
 def test_validate_tier_accepts_known_aliases():
     assert validate_tier("5") == (True, "5")
     assert validate_tier("t5") == (True, "T5")
+    assert validate_tier("1") == (True, "1")
+    assert validate_tier("t1") == (True, "T1")
+    assert validate_tier("3") == (True, "3")
+    assert validate_tier("t3") == (True, "T3")
     assert validate_tier("MEGA") == (True, "Mega")
     ok, message = validate_tier("dmax")
     assert ok is False
@@ -305,10 +524,10 @@ def test_validate_tier_accepts_known_aliases():
 
 
 def test_validate_weather_accepts_keys_and_suggests_typos():
-    ok, response, suggestion = validate_weather_argument("Clear")
-    assert ok is True
-    assert response
-    assert suggestion == ""
+    for weather in ("Clear", "rainy", "partlycloudy"):
+        ok, response, suggestion = validate_weather_argument(weather)
+        assert (ok, suggestion) == (True, "")
+        assert response
 
     ok, message, suggestion = validate_weather_argument("sunn")
     assert ok is False
@@ -318,6 +537,72 @@ def test_validate_weather_accepts_keys_and_suggests_typos():
     ok, _, suggestion = validate_weather_argument("xyzxyzxyz")
     assert ok is False
     assert suggestion == "xyzxyzxyz"
+
+
+def dummy_interaction():
+    return SimpleNamespace(guild=SimpleNamespace(name="Test Guild"))
+
+
+def test_validate_and_format_message_builds_a_raid_embed(pokemon_index):
+    ok, embed, suggestion = validate_and_format_message(
+        dummy_interaction(), "5", "Mewtwo", "Clear", "5"
+    )
+    assert ok is True
+    assert suggestion == ""
+    assert embed.title == "Mewtwo"
+    assert embed.thumbnail.url == image_url("go:pm150")
+    assert embed.fields[0].name == "Weather"
+    assert embed.fields[1].name == "Slots"
+    assert embed.fields[1].value == "5"
+
+
+def test_validate_and_format_message_mega_prefixes_title(pokemon_index):
+    ok, embed, suggestion = validate_and_format_message(
+        dummy_interaction(), "mega", "charizard-x", "windy", "8"
+    )
+    assert ok is True
+    assert suggestion == ""
+    assert embed.title == "Mega Charizard-X"
+    assert embed.fields[1].value == "8"
+
+
+def test_validate_and_format_message_invalid_pokemon_suggests(pokemon_index):
+    ok, message, suggestion = validate_and_format_message(
+        dummy_interaction(), "5", "mewtw", "Clear", "5"
+    )
+    assert ok is False
+    assert "Test Guild" in message
+    assert "Mewtwo" in suggestion
+
+
+def test_species_rows_prefers_the_base_form():
+    rows = species_rows([
+        {"species_id": "PIKACHU", "pokemon_id": "PIKACHU_POP_STAR_FORM", "dex_num": 25, "rarity": None},
+        {"species_id": "PIKACHU", "pokemon_id": "PIKACHU", "dex_num": 25, "rarity": None},
+        {"species_id": "GENGAR", "pokemon_id": "GENGAR_COSTUME_2020_FORM", "dex_num": 94, "rarity": None},
+    ])
+    assert ("PIKACHU", 25, None) in rows
+    assert sum(1 for row in rows if row[0] == "PIKACHU") == 1
+    assert ("GENGAR", 94, None) in rows
+
+
+def test_format_pokemon_name_and_filter_current_raids_shadow_overwrite():
+    assert format_pokemon_name("MEWTWO") == "Mewtwo"
+    assert format_pokemon_name("MEWTWO_SHADOW_FORM") == "Mewtwo"
+    assert format_pokemon_name("NINETALES_ALOLA_FORM") == "Alolan Ninetales"
+    assert format_pokemon_name("BLASTOISE_MEGA") == "Mega Blastoise"
+
+    raids = filter_current_raids({
+        "tiers": [
+            {"tier": "RAID_LEVEL_5", "raids": [{"pokemon": "MEWTWO"}]},
+            {"tier": "RAID_LEVEL_5_SHADOW", "raids": [{"pokemon": "MEWTWO_SHADOW_FORM"}]},
+            {"tier": "RAID_LEVEL_1", "raids": [{"pokemon": "CLEFAIRY"}]},
+            {"tier": "RAID_LEVEL_5_MAX", "raids": [{"pokemon": "DIALGA"}]},
+        ]
+    })
+    assert raids["Mewtwo"]["tier"] == "RAID_LEVEL_5_SHADOW"
+    assert raids["Clefairy"]["tier"] == "RAID_LEVEL_1"
+    assert "Dialga" not in raids
 
 
 def test_validate_invites_allows_one_through_ten():
