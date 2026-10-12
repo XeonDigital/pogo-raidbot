@@ -80,7 +80,7 @@ TYPE_ICON_DIR = Path(__file__).resolve().parents[2] / "assets" / "pokemon_types"
 _type_emojis = None
 
 
-async def type_emojis(bot):
+async def create_type_emojis(bot):
     global _type_emojis
     if _type_emojis is None:
         try:
@@ -97,24 +97,19 @@ async def type_emojis(bot):
     return _type_emojis
 
 
-def move_name(move_id):
-    name = move_id.removesuffix("_FAST")
-    plus = name.endswith("_PLUS")
-    name = name.removesuffix("_PLUS").replace("_", " ").title()
-    return f"{name}+" if plus else name
-
-
-def move_text(move, emojis):
-    if not move:
-        return "?"
-    emoji = emojis.get(move["type"].removeprefix("POKEMON_TYPE_"))
-    return f"{emoji} {move_name(move['moveId'])}" if emoji else move_name(move["moveId"])
-
-
 def counter_moves(counter, emojis):
     """[fast, charged] move text for one of ``Pokedex.get_counter_data``'s counters."""
-    moves = counter.get("byMove") or {}
-    return [move_text(moves.get("move1"), emojis), move_text(moves.get("move2"), emojis)]
+    texts = []
+    for slot in ("move1", "move2"):
+        move = (counter.get("byMove") or {}).get(slot)
+        if not move:
+            texts.append("?")
+            continue
+        name = move["moveId"].removesuffix("_FAST")
+        name = name.removesuffix("_PLUS").replace("_", " ").title() + ("+" if name.endswith("_PLUS") else "")
+        emoji = emojis.get(move["type"].removeprefix("POKEMON_TYPE_"))
+        texts.append(f"{emoji} {name}" if emoji else name)
+    return texts
 
 form_converter = {
     "ALOLA":"Alolan",

@@ -1,4 +1,6 @@
+"""Reusable Discord UI components."""
 import discord
+
 
 class EmbedPages(discord.ui.View):
     """◀ / ▶ through a list of embeds."""

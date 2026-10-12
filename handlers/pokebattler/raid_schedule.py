@@ -3,7 +3,7 @@ import datetime as dt
 
 import discord
 
-from classes.embed_pages import EmbedPages
+from classes.components import EmbedPages
 from handlers.pokebattler import api_helper as AH
 from handlers.pokebattler import pokebattler_api as API
 from handlers.pokebattler.pokemon_images import image_url
@@ -149,7 +149,7 @@ async def send_weekly_raids(bot, interaction: discord.Interaction):
     weeks = [entries_in(payload.get("breakingNews"), *window) for window in windows]
     bosses = list({(e["pokemon"], e["tier"]) for week in weeks for e in week if e["tier"] in COUNTER_TIERS})
     counters = dict(zip(bosses, await asyncio.gather(*(fetch_counters(bot.dex, *boss) for boss in bosses))))
-    emojis = await AH.type_emojis(bot)
+    emojis = await AH.create_type_emojis(bot)
 
     embeds = [build_week_embed(title, window, entries, counters, emojis)
               for title, window, entries in zip(WEEK_TITLES, windows, weeks)]

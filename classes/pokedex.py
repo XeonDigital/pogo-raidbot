@@ -183,7 +183,7 @@ class Pokedex():
         embed = discord.Embed(title=name.replace("-", " ").title(), description="Recommended counters and moves ", url=link)
         embed.add_field(name="Weather", value=F.WEATHER_TO_EMOJI.get(weather.lower()), inline=False)
         embed.add_field(name="Counters", value="With a **random moveset** and the above weather, here are the recommended counters.", inline=False)
-        emojis = await AH.type_emojis(bot)
+        emojis = await AH.create_type_emojis(bot)
         for rank, counter in enumerate(result, start=1):
             name, _ = display_pokemon(counter["pokemonId"])
             embed.add_field(name=f"{rank}) {name}", value="\n".join(AH.counter_moves(counter, emojis)), inline=True)
