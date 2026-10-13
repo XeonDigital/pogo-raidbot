@@ -1,0 +1,9 @@
+[run]
+relative_files = true
+source = .
+omit =
+    tests/*
+    .webcache/*
+
+[report]
+show_missing = true
