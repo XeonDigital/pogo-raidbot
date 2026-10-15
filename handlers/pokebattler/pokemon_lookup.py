@@ -323,3 +323,16 @@ def suggest_pokemon(name, *, mega=False):
     bucket = _index.get(mega, {})
     match = process.extractOne(normalize_key(name), list(bucket), scorer=fuzz.ratio, score_cutoff=SUGGEST_MIN_RATIO)
     return bucket[match[0]]["display_name"] if match else None
+
+
+def display_pokemon(pokemon_id):
+    """(display name, row or None) for any pokebattler id, e.g. ``Shadow Landorus``, ``Mega Charizard-X``."""
+    shadow = pokemon_id.endswith("_SHADOW_FORM")
+    base = pokemon_id.removesuffix("_SHADOW_FORM").removesuffix("_FORM")
+    primal = base.endswith("_PRIMAL")
+    mega = primal or "_MEGA" in base
+    row = find_pokemon(base, mega=mega)
+    name = row["display_name"] if row else " ".join(t.title() for t in base.split("_") if t not in ("MEGA", "PRIMAL"))
+    if mega:
+        name = f"{'Primal' if primal else 'Mega'} {name}"
+    return (f"Shadow {name}" if shadow else name), row
