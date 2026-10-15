@@ -1,8 +1,8 @@
 import discord
 
 import asyncio
-from pathlib import Path
 
+from data import formats as F
 from pogo_raid_lib import *
 
 tab_count = -1
@@ -75,26 +75,8 @@ value_from_arg ={
     "rarity":lambda entry: entry.get("rarity").split("_").pop(2).title()
 }
 
-TYPE_ICON_DIR = Path(__file__).resolve().parents[2] / "assets" / "pokemon_types"
-
-_type_emojis = None
-
-
-async def create_type_emojis(bot):
-    global _type_emojis
-    if _type_emojis is None:
-        try:
-            emojis = {emoji.name: str(emoji) for emoji in await bot.fetch_application_emojis()}
-            for icon in TYPE_ICON_DIR.glob("ico_*.png"):
-                name = f"type_{icon.stem.rsplit('_', 1)[-1]}"
-                if name not in emojis:
-                    emojis[name] = str(await bot.create_application_emoji(name=name, image=icon.read_bytes()))
-        except discord.DiscordException as error:
-            print(f"[!] Could not set up the type emojis ({type(error).__name__}: {error}).")
-            return {}
-        _type_emojis = {name.removeprefix("type_").upper(): markup
-                        for name, markup in emojis.items() if name.startswith("type_")}
-    return _type_emojis
+# Application emoji markup per type, e.g. "FIRE": "<:fire:1529749373976842322>". Discord renders it by id.
+TYPE_EMOJIS = {type_name: f"<:{type_name.lower()}:{emoji_id}>" for type_name, emoji_id in F.TYPE_TO_EMOJI.items()}
 
 
 def counter_moves(counter, emojis):
