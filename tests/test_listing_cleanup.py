@@ -12,18 +12,12 @@ from handlers.raid_lobby_management import host_manual_remove_lobby
 from handlers.startup_handler import start_lobby_removal_loop
 
 
-def run(coro):
-    return asyncio.run(coro)
-
-
-def test_remove_listing_for_raid_noops_without_id():
-    bot = SimpleNamespace(http=SimpleNamespace(delete_message=AsyncMock()))
+def test_remove_listing_for_raid_noops_without_id(run, bot):
     run(remove_listing_for_raid(bot, None))
     bot.http.delete_message.assert_not_called()
 
 
-def test_remove_listing_for_raid_noops_when_row_missing():
-    bot = SimpleNamespace(http=SimpleNamespace(delete_message=AsyncMock()))
+def test_remove_listing_for_raid_noops_when_row_missing(run, bot):
     with patch("handlers.raid_handler.retrieve_raid_data_by_message_id", new_callable=AsyncMock) as retrieve, \
             patch("handlers.raid_handler.remove_raid_from_table", new_callable=AsyncMock) as remove_row:
         retrieve.return_value = None
@@ -32,8 +26,7 @@ def test_remove_listing_for_raid_noops_when_row_missing():
     bot.http.delete_message.assert_not_called()
 
 
-def test_remove_listing_for_raid_deletes_row_before_message():
-    bot = SimpleNamespace(http=SimpleNamespace(delete_message=AsyncMock()))
+def test_remove_listing_for_raid_deletes_row_before_message(run, bot):
     raid_data = {"message_id": 11, "channel_id": 22, "guild_id": 33}
     order = []
 
@@ -46,7 +39,7 @@ def test_remove_listing_for_raid_deletes_row_before_message():
     async def fake_sticky(_bot, _interaction, channel_id, guild_id):
         order.append(("sticky", channel_id, guild_id))
 
-    bot.http.delete_message = AsyncMock(side_effect=fake_delete)
+    bot.http.delete_message.side_effect = fake_delete
     with patch("handlers.raid_handler.retrieve_raid_data_by_message_id", new_callable=AsyncMock) as retrieve, \
             patch("handlers.raid_handler.remove_raid_from_table", side_effect=fake_remove), \
             patch("handlers.raid_handler.SH.toggle_raid_sticky", side_effect=fake_sticky):
@@ -60,9 +53,9 @@ def test_remove_listing_for_raid_deletes_row_before_message():
     ]
 
 
-def test_remove_listing_for_raid_still_toggles_sticky_if_message_gone():
-    bot = SimpleNamespace(http=SimpleNamespace(delete_message=AsyncMock(side_effect=discord.DiscordException("unknown message"))))
+def test_remove_listing_for_raid_still_toggles_sticky_if_message_gone(run, bot):
     raid_data = {"message_id": 11, "channel_id": 22, "guild_id": 33}
+    bot.http.delete_message.side_effect = discord.DiscordException("unknown message")
     with patch("handlers.raid_handler.retrieve_raid_data_by_message_id", new_callable=AsyncMock) as retrieve, \
             patch("handlers.raid_handler.remove_raid_from_table", new_callable=AsyncMock) as remove_row, \
             patch("handlers.raid_handler.SH.toggle_raid_sticky", new_callable=AsyncMock) as sticky, \
@@ -75,8 +68,7 @@ def test_remove_listing_for_raid_still_toggles_sticky_if_message_gone():
     assert "Failed to delete raid listing message" in mock_print.call_args.args[0]
 
 
-def test_remove_listing_for_raid_logs_sticky_errors():
-    bot = SimpleNamespace(http=SimpleNamespace(delete_message=AsyncMock()))
+def test_remove_listing_for_raid_logs_sticky_errors(run, bot):
     raid_data = {"message_id": 11, "channel_id": 22, "guild_id": 33}
     with patch("handlers.raid_handler.retrieve_raid_data_by_message_id", new_callable=AsyncMock) as retrieve, \
             patch("handlers.raid_handler.remove_raid_from_table", new_callable=AsyncMock), \
@@ -89,25 +81,20 @@ def test_remove_listing_for_raid_logs_sticky_errors():
     assert "toggle of raid sticky" in mock_print.call_args.args[0]
 
 
-def test_remove_listing_for_lobby_noops_without_data():
+def test_remove_listing_for_lobby_noops_without_data(run, bot):
     with patch("handlers.raid_lobby_handler.RH.remove_listing_for_raid", new_callable=AsyncMock) as remove_listing:
-        run(remove_listing_for_lobby(SimpleNamespace(), None))
+        run(remove_listing_for_lobby(bot, None))
     remove_listing.assert_not_called()
 
 
-def test_remove_listing_for_lobby_uses_raid_message_id():
-    bot = SimpleNamespace()
+def test_remove_listing_for_lobby_uses_raid_message_id(run, bot):
     lobby_data = {"raid_message_id": 99}
     with patch("handlers.raid_lobby_handler.RH.remove_listing_for_raid", new_callable=AsyncMock) as remove_listing:
         run(remove_listing_for_lobby(bot, lobby_data))
     remove_listing.assert_awaited_once_with(bot, 99)
 
 
-def test_delete_lobby_removes_listing_then_channel():
-    bot = SimpleNamespace(
-        remove_role_ignore_error=AsyncMock(),
-        delete_ignore_error=AsyncMock(),
-    )
+def test_delete_lobby_removes_listing_then_channel(run, bot):
     lobby = SimpleNamespace(
         id=7,
         members=[],
@@ -123,9 +110,8 @@ def test_delete_lobby_removes_listing_then_channel():
     bot.delete_ignore_error.assert_awaited_once_with(lobby)
 
 
-def test_guild_channel_delete_cleans_listing_for_lobby():
-    bot = SimpleNamespace()
-    channel = SimpleNamespace(id=7)
+def test_guild_channel_delete_cleans_listing_for_lobby(run, bot, make_channel):
+    channel = make_channel(7)
     lobby_data = {"raid_message_id": 99, "lobby_channel_id": 7}
     with patch("handlers.events.deletions.RLH.get_lobby_data_by_lobby_id", new_callable=AsyncMock) as get_lobby, \
             patch("handlers.events.deletions.RLH.remove_listing_for_lobby", new_callable=AsyncMock) as remove_listing, \
@@ -138,9 +124,8 @@ def test_guild_channel_delete_cleans_listing_for_lobby():
     purge.assert_not_called()
 
 
-def test_guild_channel_delete_ignores_non_lobby_channels():
-    bot = SimpleNamespace()
-    channel = SimpleNamespace(id=8)
+def test_guild_channel_delete_ignores_non_lobby_channels(run, bot, make_channel):
+    channel = make_channel(8)
     with patch("handlers.events.deletions.RLH.get_lobby_data_by_lobby_id", new_callable=AsyncMock) as get_lobby, \
             patch("handlers.events.deletions.RLH.remove_listing_for_lobby", new_callable=AsyncMock) as remove_listing, \
             patch("handlers.events.deletions.RLH.check_if_log_channel_and_purge_data", new_callable=AsyncMock) as purge:
@@ -150,9 +135,8 @@ def test_guild_channel_delete_ignores_non_lobby_channels():
     purge.assert_awaited_once_with(bot, 8)
 
 
-def test_host_close_deletes_lobby_when_channel_exists():
-    bot = SimpleNamespace(retrieve_channel=AsyncMock())
-    user = SimpleNamespace(id=5)
+def test_host_close_deletes_lobby_when_channel_exists(run, bot, make_user):
+    user = make_user()
     lobby = SimpleNamespace(id=7)
     lobby_data = {"lobby_channel_id": 7, "raid_message_id": 99}
     bot.retrieve_channel.return_value = lobby
@@ -165,9 +149,8 @@ def test_host_close_deletes_lobby_when_channel_exists():
     remove_listing.assert_not_called()
 
 
-def test_host_close_noops_when_user_is_not_hosting():
-    bot = SimpleNamespace()
-    user = SimpleNamespace(id=5, send=AsyncMock())
+def test_host_close_noops_when_user_is_not_hosting(run, bot, make_user):
+    user = make_user()
     with patch("handlers.raid_lobby_management.RLH.get_lobby_data_by_user_id", new_callable=AsyncMock) as get_lobby, \
             patch("handlers.raid_lobby_management.RLH.delete_lobby", new_callable=AsyncMock) as delete, \
             patch("handlers.raid_lobby_management.RLH.remove_listing_for_lobby", new_callable=AsyncMock) as remove_listing:
@@ -178,13 +161,8 @@ def test_host_close_noops_when_user_is_not_hosting():
     user.send.assert_awaited_once()
 
 
-def test_expiry_loop_removes_listing_if_lobby_channel_gone():
+def test_expiry_loop_removes_listing_if_lobby_channel_gone(run, bot):
     async def scenario():
-        bot = SimpleNamespace(
-            database=True,
-            retrieve_channel=AsyncMock(return_value=None),
-            lobby_remove_trigger=asyncio.Event(),
-        )
         lobby_data = {
             "lobby_channel_id": 7,
             "raid_message_id": 99,
@@ -219,9 +197,8 @@ def test_expiry_loop_removes_listing_if_lobby_channel_gone():
     run(scenario())
 
 
-def test_host_close_still_removes_listing_if_lobby_channel_missing():
-    bot = SimpleNamespace(retrieve_channel=AsyncMock(return_value=None))
-    user = SimpleNamespace(id=5)
+def test_host_close_still_removes_listing_if_lobby_channel_missing(run, bot, make_user):
+    user = make_user()
     lobby_data = {"lobby_channel_id": 7, "raid_message_id": 99}
     with patch("handlers.raid_lobby_management.RLH.get_lobby_data_by_user_id", new_callable=AsyncMock) as get_lobby, \
             patch("handlers.raid_lobby_management.RLH.delete_lobby", new_callable=AsyncMock) as delete, \

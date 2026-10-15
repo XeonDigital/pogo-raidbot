@@ -73,30 +73,26 @@ def _interaction(**overrides):
     return SimpleNamespace(**defaults)
 
 
-def test_should_log_application_command_in_guild():
-    bot = SimpleNamespace(categories_allowed=True)
+def test_should_log_application_command_in_guild(bot):
     assert should_log_slash_interaction(_interaction(), bot) is True
 
 
-def test_should_not_log_non_command_interactions():
-    bot = SimpleNamespace(categories_allowed=True)
+def test_should_not_log_non_command_interactions(bot):
     interaction = _interaction(type=discord.InteractionType.autocomplete)
     assert should_log_slash_interaction(interaction, bot) is False
 
 
-def test_should_not_log_without_guild():
-    bot = SimpleNamespace(categories_allowed=True)
+def test_should_not_log_without_guild(bot):
     assert should_log_slash_interaction(_interaction(guild=None), bot) is False
 
 
-def test_should_not_log_bot_users():
-    bot = SimpleNamespace(categories_allowed=True)
+def test_should_not_log_bot_users(bot):
     interaction = _interaction(user=SimpleNamespace(bot=True))
     assert should_log_slash_interaction(interaction, bot) is False
 
 
-def test_should_not_log_when_categories_disabled():
-    bot = SimpleNamespace(categories_allowed=False)
+def test_should_not_log_when_categories_disabled(make_bot):
+    bot = make_bot(categories_allowed=False)
     assert should_log_slash_interaction(_interaction(), bot) is False
 
 

@@ -539,13 +539,9 @@ def test_validate_weather_accepts_keys_and_suggests_typos():
     assert suggestion == "xyzxyzxyz"
 
 
-def dummy_interaction():
-    return SimpleNamespace(guild=SimpleNamespace(name="Test Guild"))
-
-
-def test_validate_and_format_message_builds_a_raid_embed(pokemon_index):
+def test_validate_and_format_message_builds_a_raid_embed(pokemon_index, make_interaction):
     ok, embed, suggestion = validate_and_format_message(
-        dummy_interaction(), "5", "Mewtwo", "Clear", "5"
+        make_interaction(), "5", "Mewtwo", "Clear", "5"
     )
     assert ok is True
     assert suggestion == ""
@@ -556,9 +552,9 @@ def test_validate_and_format_message_builds_a_raid_embed(pokemon_index):
     assert embed.fields[1].value == "5"
 
 
-def test_validate_and_format_message_mega_prefixes_title(pokemon_index):
+def test_validate_and_format_message_mega_prefixes_title(pokemon_index, make_interaction):
     ok, embed, suggestion = validate_and_format_message(
-        dummy_interaction(), "mega", "charizard-x", "windy", "8"
+        make_interaction(), "mega", "charizard-x", "windy", "8"
     )
     assert ok is True
     assert suggestion == ""
@@ -566,9 +562,9 @@ def test_validate_and_format_message_mega_prefixes_title(pokemon_index):
     assert embed.fields[1].value == "8"
 
 
-def test_validate_and_format_message_invalid_pokemon_suggests(pokemon_index):
+def test_validate_and_format_message_invalid_pokemon_suggests(pokemon_index, make_interaction):
     ok, message, suggestion = validate_and_format_message(
-        dummy_interaction(), "5", "mewtw", "Clear", "5"
+        make_interaction(), "5", "mewtw", "Clear", "5"
     )
     assert ok is False
     assert "Test Guild" in message
