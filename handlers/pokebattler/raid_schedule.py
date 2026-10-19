@@ -120,9 +120,9 @@ def fits(embed):
             and all(len(field.value) <= FIELD_LIMIT for field in embed.fields))
 
 
-def tier_value(bosses, emojis, most):
-    """One field's worth of [(name, counters, note)], with as many counters (up to ``most``) as fit in it."""
-    for shown in range(most, -1, -1):
+def tier_value(bosses, emojis, max_counters):
+    """One field's worth of [(name, counters, note)], with as many counters (up to ``max_counters``) as fit in it."""
+    for shown in range(max_counters, -1, -1):
         value = ("\n\n" if shown else "\n").join(counter_text(*boss, emojis, shown) for boss in bosses)
         if len(value) <= FIELD_LIMIT:
             break
