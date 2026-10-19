@@ -1,7 +1,8 @@
 import discord
 
 import asyncio
-import data.formats as F
+
+from data import formats as F
 from pogo_raid_lib import *
 
 tab_count = -1
@@ -74,14 +75,23 @@ value_from_arg ={
     "rarity":lambda entry: entry.get("rarity").split("_").pop(2).title()
 }
 
-async def move_to_readable(bot, movenum, move):
-    move_name = move.get("moveId").replace("_FAST","")
-    move_name = move_name.replace("_", " ").title()
-    
-    move_type = move.get("type").split("_").pop()
-    icon = await bot.fetch_application_emoji(int(F.TYPE_TO_EMOJI.get(move_type)))
+# Application emoji markup per type, e.g. "FIRE": "<:fire:1529749373976842322>". Discord renders it by id.
+TYPE_EMOJIS = {type_name: f"<:{type_name.lower()}:{emoji_id}>" for type_name, emoji_id in F.TYPE_TO_EMOJI.items()}
 
-    return f"<:{icon.name}:{icon.id}> {move_name}"
+
+def counter_moves(counter, emojis):
+    """[fast, charged] move text for one of ``Pokedex.get_counter_data``'s counters."""
+    texts = []
+    for slot in ("move1", "move2"):
+        move = (counter.get("byMove") or {}).get(slot)
+        if not move:
+            texts.append("?")
+            continue
+        name = move["moveId"].removesuffix("_FAST")
+        name = name.removesuffix("_PLUS").replace("_", " ").title() + ("+" if name.endswith("_PLUS") else "")
+        emoji = emojis.get(move["type"].removeprefix("POKEMON_TYPE_"))
+        texts.append(f"{emoji} {name}" if emoji else name)
+    return texts
 
 form_converter = {
     "ALOLA":"Alolan",
