@@ -1,11 +1,12 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import discord
 
 from handlers.events import deletions
+from handlers.events.reactions import handle_reaction_remove_raid, raw_reaction_add_handle
 from handlers.raid_handler import remove_listing_for_raid
 from handlers.raid_lobby_handler import delete_lobby, remove_listing_for_lobby
 from handlers.raid_lobby_management import host_manual_remove_lobby
@@ -209,3 +210,240 @@ def test_host_close_still_removes_listing_if_lobby_channel_missing(run, bot, mak
     delete.assert_not_called()
     remove_listing.assert_awaited_once_with(bot, lobby_data)
     remove_lobby.assert_awaited_once_with(bot, lobby_data)
+
+
+def test_trash_on_non_listing_does_not_dm(run, bot, make_user):
+    user = make_user()
+    message = SimpleNamespace(id=99, delete=AsyncMock())
+    payload = SimpleNamespace(user_id=user.id, member=user, guild_id=1)
+    with patch("handlers.events.reactions.RH.retrieve_raid_data_by_message_id", new_callable=AsyncMock, return_value=None):
+        run(handle_reaction_remove_raid(bot, payload, message))
+    user.send.assert_not_called()
+    message.delete.assert_not_called()
+
+
+def test_trash_on_listing_by_host_deletes_and_dms(run, bot, make_user):
+    user = make_user()
+    message = SimpleNamespace(id=42, delete=AsyncMock())
+    payload = SimpleNamespace(user_id=user.id, member=user, guild_id=1)
+    bot.get_guild = Mock(return_value=SimpleNamespace(name="Test Guild"))
+    with patch(
+        "handlers.events.reactions.RH.retrieve_raid_data_by_message_id",
+        new_callable=AsyncMock,
+        return_value={"user_id": user.id, "message_id": 42},
+    ):
+        run(handle_reaction_remove_raid(bot, payload, message))
+    message.delete.assert_awaited_once()
+    assert "successfuly deleted" in user.send.await_args.args[0]
+
+
+def test_trash_still_dms_success_if_listing_delete_fails(run, bot, make_user):
+    user = make_user()
+    message = SimpleNamespace(id=42, delete=AsyncMock(side_effect=discord.DiscordException("unknown message")))
+    payload = SimpleNamespace(user_id=user.id, member=user, guild_id=1)
+    bot.get_guild = Mock(return_value=SimpleNamespace(name="Test Guild"))
+    with patch(
+        "handlers.events.reactions.RH.retrieve_raid_data_by_message_id",
+        new_callable=AsyncMock,
+        return_value={"user_id": user.id, "message_id": 42},
+    ):
+        run(handle_reaction_remove_raid(bot, payload, message))
+    message.delete.assert_awaited_once()
+    assert "successfuly deleted" in user.send.await_args.args[0]
+
+
+def test_trash_on_listing_by_other_user_rejects(run, bot, make_user):
+    user = make_user()
+    message = SimpleNamespace(id=42, delete=AsyncMock())
+    payload = SimpleNamespace(user_id=user.id, member=user, guild_id=1)
+    bot.get_guild = Mock(return_value=SimpleNamespace(name="Test Guild"))
+    with patch(
+        "handlers.events.reactions.RH.retrieve_raid_data_by_message_id",
+        new_callable=AsyncMock,
+        return_value={"user_id": 999, "message_id": 42},
+    ):
+        run(handle_reaction_remove_raid(bot, payload, message))
+    message.delete.assert_not_called()
+    assert "not the host" in user.send.await_args.args[0]
+
+
+def test_trash_uses_empty_guild_name_when_guild_is_missing(run, bot, make_user):
+    user = make_user()
+    message = SimpleNamespace(id=42, delete=AsyncMock())
+    payload = SimpleNamespace(user_id=user.id, member=user, guild_id=1)
+    bot.get_guild = Mock(return_value=None)
+    with patch(
+        "handlers.events.reactions.RH.retrieve_raid_data_by_message_id",
+        new_callable=AsyncMock,
+        return_value={"user_id": user.id, "message_id": 42},
+    ):
+        run(handle_reaction_remove_raid(bot, payload, message))
+    message.delete.assert_awaited_once()
+    assert "successfuly deleted" in user.send.await_args.args[0]
+
+
+def test_trash_skips_dm_when_user_cannot_be_resolved(run, bot):
+    message = SimpleNamespace(id=42, delete=AsyncMock())
+    payload = SimpleNamespace(user_id=5, member=None, guild_id=1)
+    bot.get_user = Mock(return_value=None)
+    bot.fetch_user = AsyncMock(return_value=None)
+    bot.get_guild = Mock(return_value=SimpleNamespace(name="Test Guild"))
+    with patch(
+        "handlers.events.reactions.RH.retrieve_raid_data_by_message_id",
+        new_callable=AsyncMock,
+        return_value={"user_id": 5, "message_id": 42},
+    ):
+        run(handle_reaction_remove_raid(bot, payload, message))
+    message.delete.assert_awaited_once()
+
+
+def add_trash_in_raid_channel(run, bot, user, message):
+    bot.user = SimpleNamespace(id=99)
+    bot.get_guild = Mock(return_value=SimpleNamespace(name="Test Guild"))
+    message.author = SimpleNamespace(id=bot.user.id)
+    message.guild = SimpleNamespace(id=1)
+    channel = SimpleNamespace(
+        id=100,
+        type=discord.ChannelType.text,
+        fetch_message=AsyncMock(return_value=message),
+    )
+    bot.retrieve_channel = AsyncMock(return_value=channel)
+    payload = SimpleNamespace(
+        user_id=user.id,
+        member=user,
+        guild_id=1,
+        channel_id=100,
+        message_id=message.id,
+        emoji=SimpleNamespace(name="🗑️"),
+    )
+    with patch("handlers.events.reactions.RH.check_if_valid_raid_channel", new_callable=AsyncMock, return_value=True), \
+            patch("handlers.events.reactions.REQH.check_if_valid_request_channel", new_callable=AsyncMock, return_value=False), \
+            patch("handlers.events.reactions.RLH.get_raid_lobby_category_by_guild_id", new_callable=AsyncMock, return_value=None):
+        run(raw_reaction_add_handle(payload, bot))
+
+
+class TestTrashInRaidChannel:
+    def test_bot_adding_trash_is_ignored(self, run, bot, make_user):
+        user = make_user()
+        bot.user = SimpleNamespace(id=user.id)
+        message = SimpleNamespace(id=42, delete=AsyncMock(), author=SimpleNamespace(id=user.id))
+        payload = SimpleNamespace(
+            user_id=user.id,
+            emoji=SimpleNamespace(name="🗑️"),
+            channel_id=100,
+            message_id=42,
+        )
+        run(raw_reaction_add_handle(payload, bot))
+        user.send.assert_not_called()
+        message.delete.assert_not_called()
+
+    def test_trash_on_counters_does_not_dm_the_host(self, run, bot, make_user):
+        user = make_user()
+        counters = SimpleNamespace(id=50, delete=AsyncMock())
+        with patch("handlers.events.reactions.RH.retrieve_raid_data_by_message_id", new_callable=AsyncMock, return_value=None):
+            add_trash_in_raid_channel(run, bot, user, counters)
+        user.send.assert_not_called()
+        counters.delete.assert_not_called()
+
+    def test_trash_on_listing_from_host_deletes_once(self, run, bot, make_user):
+        user = make_user()
+        listing = SimpleNamespace(id=42, delete=AsyncMock())
+        with patch(
+            "handlers.events.reactions.RH.retrieve_raid_data_by_message_id",
+            new_callable=AsyncMock,
+            return_value={"user_id": user.id, "message_id": 42},
+        ):
+            add_trash_in_raid_channel(run, bot, user, listing)
+        listing.delete.assert_awaited_once()
+        assert "successfuly deleted" in user.send.await_args.args[0]
+        assert user.send.await_count == 1
+
+    def test_trash_on_counters_then_listing_only_dms_success(self, run, bot, make_user):
+        user = make_user()
+        counters = SimpleNamespace(id=50, delete=AsyncMock())
+        listing = SimpleNamespace(id=42, delete=AsyncMock())
+
+        async def raid_for_message(_interaction, _bot, message_id):
+            if int(message_id) == listing.id:
+                return {"user_id": user.id, "message_id": listing.id}
+            return None
+
+        with patch("handlers.events.reactions.RH.retrieve_raid_data_by_message_id", side_effect=raid_for_message):
+            add_trash_in_raid_channel(run, bot, user, counters)
+            add_trash_in_raid_channel(run, bot, user, listing)
+
+        counters.delete.assert_not_called()
+        listing.delete.assert_awaited_once()
+        assert user.send.await_count == 1
+        assert "successfuly deleted" in user.send.await_args.args[0]
+
+    def test_trash_on_listing_from_other_user_is_rejected(self, run, bot, make_user):
+        user = make_user()
+        listing = SimpleNamespace(id=42, delete=AsyncMock())
+        with patch(
+            "handlers.events.reactions.RH.retrieve_raid_data_by_message_id",
+            new_callable=AsyncMock,
+            return_value={"user_id": 999, "message_id": 42},
+        ):
+            add_trash_in_raid_channel(run, bot, user, listing)
+        listing.delete.assert_not_called()
+        assert "not the host" in user.send.await_args.args[0]
+        assert user.send.await_count == 1
+
+
+class TestReactionEarlyExits:
+    def _payload(self, user_id=5, emoji_name="🗑️", message_id=42):
+        return SimpleNamespace(
+            user_id=user_id,
+            member=None,
+            guild_id=1,
+            channel_id=100,
+            message_id=message_id,
+            emoji=SimpleNamespace(name=emoji_name),
+        )
+
+    def test_unknown_emoji_is_ignored(self, run, bot, make_user):
+        bot.user = SimpleNamespace(id=99)
+        bot.retrieve_channel = AsyncMock()
+        run(raw_reaction_add_handle(self._payload(emoji_name="🔥"), bot))
+        bot.retrieve_channel.assert_not_called()
+
+    def test_missing_channel_is_ignored(self, run, bot):
+        bot.user = SimpleNamespace(id=99)
+        bot.retrieve_channel = AsyncMock(return_value=None)
+        with patch("handlers.events.reactions.RH.check_if_valid_raid_channel", new_callable=AsyncMock, return_value=True), \
+                patch("handlers.events.reactions.REQH.check_if_valid_request_channel", new_callable=AsyncMock, return_value=False):
+            run(raw_reaction_add_handle(self._payload(), bot))
+
+    def test_missing_message_is_ignored(self, run, bot):
+        bot.user = SimpleNamespace(id=99)
+        channel = SimpleNamespace(fetch_message=AsyncMock(side_effect=discord.DiscordException("unknown message")))
+        bot.retrieve_channel = AsyncMock(return_value=channel)
+        with patch("handlers.events.reactions.RH.check_if_valid_raid_channel", new_callable=AsyncMock, return_value=True), \
+                patch("handlers.events.reactions.REQH.check_if_valid_request_channel", new_callable=AsyncMock, return_value=False):
+            run(raw_reaction_add_handle(self._payload(), bot))
+
+    def test_message_not_from_the_bot_is_ignored(self, run, bot, make_user):
+        user = make_user()
+        bot.user = SimpleNamespace(id=99)
+        message = SimpleNamespace(id=42, author=SimpleNamespace(id=user.id), delete=AsyncMock())
+        channel = SimpleNamespace(fetch_message=AsyncMock(return_value=message), type=discord.ChannelType.text)
+        bot.retrieve_channel = AsyncMock(return_value=channel)
+        with patch("handlers.events.reactions.RH.check_if_valid_raid_channel", new_callable=AsyncMock, return_value=True), \
+                patch("handlers.events.reactions.REQH.check_if_valid_request_channel", new_callable=AsyncMock, return_value=False):
+            run(raw_reaction_add_handle(self._payload(user_id=user.id), bot))
+        message.delete.assert_not_called()
+        user.send.assert_not_called()
+
+    def test_missing_reactor_is_ignored(self, run, bot):
+        bot.user = SimpleNamespace(id=99)
+        bot.get_user = Mock(return_value=None)
+        bot.fetch_user = AsyncMock(return_value=None)
+        message = SimpleNamespace(id=42, author=SimpleNamespace(id=99), delete=AsyncMock())
+        channel = SimpleNamespace(fetch_message=AsyncMock(return_value=message), type=discord.ChannelType.text)
+        bot.retrieve_channel = AsyncMock(return_value=channel)
+        with patch("handlers.events.reactions.RH.check_if_valid_raid_channel", new_callable=AsyncMock, return_value=True), \
+                patch("handlers.events.reactions.REQH.check_if_valid_request_channel", new_callable=AsyncMock, return_value=False), \
+                patch("handlers.events.reactions.handle_reaction_remove_raid", new_callable=AsyncMock) as remove_raid:
+            run(raw_reaction_add_handle(self._payload(), bot))
+        remove_raid.assert_not_called()
