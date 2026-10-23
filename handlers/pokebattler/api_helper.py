@@ -76,7 +76,26 @@ value_from_arg ={
 }
 
 # Application emoji markup per type, e.g. "FIRE": "<:fire:1529749373976842322>". Discord renders it by id.
+# Hardcoded IDs are the live app; bind_type_emojis() swaps in this bot's emojis when present.
 TYPE_EMOJIS = {type_name: f"<:{type_name.lower()}:{emoji_id}>" for type_name, emoji_id in F.TYPE_TO_EMOJI.items()}
+
+
+def bind_type_emojis(application_emojis):
+    """Use this application's type icons when their names match (psychic, ico_13_psychic, ...)."""
+    global TYPE_EMOJIS
+    by_name = {}
+    for emoji in application_emojis or []:
+        name = emoji.get("name") if isinstance(emoji, dict) else emoji.name
+        emoji_id = emoji.get("id") if isinstance(emoji, dict) else emoji.id
+        by_name[name.lower()] = f"<:{name}:{emoji_id}>"
+    rebound = {}
+    for type_name, emoji_id in F.TYPE_TO_EMOJI.items():
+        lower = type_name.lower()
+        mention = by_name.get(lower)
+        if mention is None:
+            mention = next((text for name, text in by_name.items() if name.endswith("_" + lower)), None)
+        rebound[type_name] = mention or f"<:{lower}:{emoji_id}>"
+    TYPE_EMOJIS = rebound
 
 
 def counter_moves(counter, emojis):
@@ -117,7 +136,7 @@ def format_pokemon_name(name):
     return name
 
 
-async def get_counter(bot, interaction: discord.Interaction, tier, name, weather):
+async def get_counter(bot, interaction: discord.Interaction, tier, name, weather, channel=None, notify=True):
     if not tier or (tier.lower() == "mega" and not name):
         await interaction.followup.send("No pokemon given to get counters for.", ephemeral=True)
         return
@@ -146,9 +165,11 @@ async def get_counter(bot, interaction: discord.Interaction, tier, name, weather
     embed = await bot.dex.get_counter_for(bot, name, tier, weather)
     embed_thumbnail = image_url(dex_num)
     embed.set_thumbnail(url=embed_thumbnail)
+    destination = channel or interaction.channel
     try:
-        await interaction.channel.send(embed=embed)
-        await interaction.followup.send("Counters sent to the channel.", ephemeral=True)
+        await destination.send(embed=embed)
+        if notify:
+            await interaction.followup.send("Counters sent to the channel.", ephemeral=True)
     except discord.DiscordException:
         pass
 

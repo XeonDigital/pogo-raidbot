@@ -5,46 +5,26 @@ from handlers import request_handler as REQH
 from handlers import raid_handler as RH
 from handlers import raid_lobby_handler as RLH
 from handlers import raid_lobby_management as RLM
-from handlers import sticky_handler as SH
 
-async def handle_reaction_remove_raid_with_lobby(bot, payload, message):
-    message_id = message.id
-    results = await RH.check_if_in_raid(None, bot, payload.user_id)
-    if results and results.get("message_id") == message_id:
-        message_to_send = "Your raid has been successfuly deleted."
-        try:
-            await message.delete()
-        except discord.DiscordException:
-            pass
-    else:
-        message_to_send = "You are not the host. You cannot delete this raid!"
-        
+async def handle_reaction_remove_raid(bot, payload, message):
+    raid = await RH.retrieve_raid_data_by_message_id(None, bot, message.id)
+    if not raid:
+        return
+
     user = payload.member or bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
+    guild = bot.get_guild(payload.guild_id)
+    guild_name = guild.name if guild else ""
+    if int(raid.get("user_id")) != int(payload.user_id):
+        if user:
+            await user.send(H.guild_member_dm(guild_name, "You are not the host. You cannot delete this raid!"))
+        return
+
+    try:
+        await message.delete()
+    except discord.DiscordException:
+        pass
     if user:
-        await user.send(H.guild_member_dm(bot.get_guild(payload.guild_id).name, message_to_send))
-
-async def handle_reaction_remove_raid_no_lobby(bot, payload, message):
-    user_id = message.mentions[0].id
-
-    if int(user_id) != payload.user_id:
-        message_to_send = "You are not the host. You cannot delete this raid!"
-    else:
-        message_to_send = "Your raid has been successfuly deleted."
-
-        await RH.remove_raid_from_table(bot, message.id)
-
-        try:
-            await message.delete()
-        except discord.DiscordException:
-            pass
-        try:
-            await SH.toggle_raid_sticky(bot, None, int(payload.channel_id), int(payload.guild_id))
-        except discord.DiscordException as error:
-            print("[!] An error occurred [{}]".format(error))
-            
-    user = payload.member or bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
-    if user:
-        await user.send(H.guild_member_dm(bot.get_guild(payload.guild_id).name, message_to_send))
+        await user.send(H.guild_member_dm(guild_name, "Your raid has been successfuly deleted."))
 
 WATCHED_EMOJIS = (
     "📝",
@@ -107,7 +87,4 @@ async def raw_reaction_add_handle(payload, bot):
         elif payload.emoji.name == "📪":
             await REQH.remove_request_role_from_user(bot, payload, message)
         elif payload.emoji.name == "🗑️":
-            if not category_exists or not bot.categories_allowed:
-                await handle_reaction_remove_raid_no_lobby(bot, payload, message)
-            else:
-                await handle_reaction_remove_raid_with_lobby(bot, payload, message)
+            await handle_reaction_remove_raid(bot, payload, message)

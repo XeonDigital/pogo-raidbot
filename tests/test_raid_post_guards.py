@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -27,7 +27,7 @@ def post_raid(run, interaction, bot, pokemon="Mewtwo", weather="Clear", invite_s
 
 def valid_raid_message():
     def fake_validate(interaction, tier, pokemon_name, weather, invite_slots):
-        return (True, SimpleNamespace(title=pokemon_name), "")
+        return (True, SimpleNamespace(title=pokemon_name, set_footer=Mock()), "")
 
     return patch(
         "handlers.raid_handler.validate_and_format_message",
@@ -36,7 +36,13 @@ def valid_raid_message():
 
 
 @pytest.fixture
-def ready_to_list():
+def mock_get_counter():
+    with patch("handlers.raid_handler.get_counter", new_callable=AsyncMock) as mocked:
+        yield mocked
+
+
+@pytest.fixture
+def ready_to_list(mock_get_counter):
     with valid_raid_message(), \
             patch("handlers.raid_handler.REQH.check_if_request_message_exists", new_callable=AsyncMock, return_value=(None, None, None, None)), \
             patch("handlers.raid_handler.REQH.get_request_channel", new_callable=AsyncMock, return_value=None), \
@@ -46,6 +52,10 @@ def ready_to_list():
 
 
 class TestRaidGuards:
+    @pytest.fixture(autouse=True)
+    def _patch_counters(self, mock_get_counter):
+        self.get_counter = mock_get_counter
+
     def test_wrong_channel_is_rejected(self, run, make_context, followup_text):
         interaction, bot = make_context(raid_channel=False)
         post_raid(run, interaction, bot)
@@ -53,6 +63,7 @@ class TestRaidGuards:
         assert "correct raid channel" in followup_text(interaction)
         assert_raid_was_not_listed(interaction)
         bot.send_ignore_error.assert_not_called()
+        self.get_counter.assert_not_called()
 
     def test_already_in_a_raid_is_rejected(self, run, make_context, followup_text):
         interaction, bot = make_context()
@@ -62,6 +73,7 @@ class TestRaidGuards:
         assert "already in a raid" in followup_text(interaction)
         assert_raid_was_not_listed(interaction)
         bot.send_ignore_error.assert_not_called()
+        self.get_counter.assert_not_called()
 
     def test_leftover_lobby_is_rejected(self, run, make_context, followup_text):
         interaction, bot = make_context()
@@ -75,6 +87,7 @@ class TestRaidGuards:
         assert "lobby open" in followup_text(interaction)
         assert_raid_was_not_listed(interaction)
         bot.send_ignore_error.assert_not_called()
+        self.get_counter.assert_not_called()
 
     def test_unverified_host_cannot_list_more_than_five(self, run, make_context):
         interaction, bot = make_context()
@@ -83,6 +96,7 @@ class TestRaidGuards:
         assert "more than 5" in sent_error_description(bot)
         assert_raid_was_not_listed(interaction)
         interaction.followup.send.assert_not_called()
+        self.get_counter.assert_not_called()
 
     def test_pokemon_not_in_rotation_is_rejected(self, run, make_context):
         interaction, bot = make_context()
@@ -92,6 +106,7 @@ class TestRaidGuards:
         assert "not currently in rotation" in sent_error_description(bot)
         assert "Dialga" in sent_error_description(bot)
         assert_raid_was_not_listed(interaction)
+        self.get_counter.assert_not_called()
 
     def test_invalid_arguments_are_rejected(self, run, make_context, followup_text):
         interaction, bot = make_context()
@@ -107,6 +122,7 @@ class TestRaidGuards:
         assert "/raid 5 Mewtwo Clear 5" in message
         assert_raid_was_not_listed(interaction)
         bot.send_ignore_error.assert_not_called()
+        self.get_counter.assert_not_called()
 
 
 class TestRaidListing:
@@ -124,3 +140,32 @@ class TestRaidListing:
 
         assert_raid_was_listed(interaction, followup_text)
         bot.send_ignore_error.assert_not_called()
+
+    def test_counters_are_posted_to_the_listing_channel_without_a_lobby(self, run, make_context, ready_to_list, mock_get_counter, followup_text):
+        interaction, bot = make_context()
+        post_raid(run, interaction, bot)
+
+        assert_raid_was_listed(interaction, followup_text)
+        mock_get_counter.assert_awaited_once_with(bot, interaction, "5", "Mewtwo", "Clear", interaction.channel, False)
+
+    def test_counters_are_posted_to_the_lobby_when_one_exists(self, run, make_context, mock_get_counter, followup_text, make_channel):
+        interaction, bot = make_context()
+        lobby = make_channel(channel_id=200)
+        lobby.mention = "<#200>"
+        with valid_raid_message(), \
+                patch("handlers.raid_handler.REQH.check_if_request_message_exists", new_callable=AsyncMock, return_value=(None, None, None, None)), \
+                patch("handlers.raid_handler.REQH.get_request_channel", new_callable=AsyncMock, return_value=None), \
+                patch("handlers.raid_lobby_handler.get_raid_lobby_category_by_guild_id", new_callable=AsyncMock, return_value={"category_id": 1}), \
+                patch("handlers.raid_lobby_handler.create_raid_lobby", new_callable=AsyncMock, return_value=lobby), \
+                patch("handlers.raid_handler.SH.toggle_raid_sticky", new_callable=AsyncMock):
+            post_raid(run, interaction, bot)
+
+        assert_raid_was_listed(interaction, followup_text)
+        mock_get_counter.assert_awaited_once_with(bot, interaction, "5", "Mewtwo", "Clear", lobby, False)
+
+    def test_raid_is_still_listed_when_counters_fail(self, run, make_context, ready_to_list, mock_get_counter, followup_text):
+        mock_get_counter.side_effect = RuntimeError("pokebattler down")
+        interaction, bot = make_context()
+        post_raid(run, interaction, bot)
+
+        assert_raid_was_listed(interaction, followup_text)
