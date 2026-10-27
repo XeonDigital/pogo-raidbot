@@ -1,7 +1,9 @@
 """Cog containing event listeners"""
 from discord.ext import commands
+from discord.http import Route
 
 import handlers.events as EH
+import handlers.pokebattler.api_helper as AH
 
 class Listeners(commands.Cog):
     """Event Listeners Cog"""
@@ -15,6 +17,17 @@ class Listeners(commands.Cog):
         """Built in event"""
         print(f'[i] Logged in as {self.__bot.user.name} \n')
         print(f'[i] Connected guilds: {[f"{g.name} ({g.id})" for g in self.__bot.guilds]}')
+
+        try:
+            app_id = self.__bot.application_id or self.__bot.user.id
+            data = await self.__bot.http.request(
+                Route("GET", "/applications/{application_id}/emojis", application_id=app_id)
+            )
+            items = data.get("items", data) if isinstance(data, dict) else data
+            AH.bind_type_emojis(items)
+            print(f"[i] Bound {len(items)} application emojis for type icons.")
+        except Exception as error:
+            print(f"[!] Failed to bind type emojis: {error}")
 
         # Skip re-syncing on later on_ready calls to avoid Discord rate limits.
         if self._has_synced:

@@ -8,6 +8,7 @@ import handlers.helpers as H
 #import handlers.raid_lobby_handler as RLH
 import handlers.request_handler as REQH
 import handlers.sticky_handler as SH
+from handlers.pokebattler.api_helper import get_counter
 from pogo_raid_lib import validate_and_format_message
 
 NEW_RAID_INSERT = """
@@ -324,6 +325,11 @@ async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name
             except Exception as error:
                 print(f"[!] Failed to log /raid command. [{error}]")
         print(f'[*][{interaction.guild}][{interaction.user.name}] Raid successfuly posted.')
+
+        try:
+            await get_counter(bot, interaction, tier, pokemon_name, weather, lobby or interaction.channel, False)
+        except Exception as error:
+            print(f"[!][{interaction.guild}][{interaction.user.name}] Failed to post raid counters. [{error}]")
 
         try:
             await SH.toggle_raid_sticky(bot, interaction, int(interaction.channel.id), int(interaction.guild.id))
