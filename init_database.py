@@ -113,7 +113,19 @@ CREATE TABLE IF NOT EXISTS raid_placeholder_stickies(
   guild_id BIGINT NOT NULL
 )
 '''
-
+# Reviewing system, up/downvote for host / raiders.
+RAID_VOTES = '''
+CREATE TABLE IF NOT EXISTS raid_votes(
+  raid_message_id BIGINT NOT NULL,
+  voter_user_id BIGINT NOT NULL,
+  target_user_id BIGINT NOT NULL,
+  vote SMALLINT NOT NULL CHECK (vote IN (-1, 1)),
+  voted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (raid_message_id, voter_user_id, target_user_id),
+  CHECK (voter_user_id <> target_user_id)
+);
+CREATE INDEX IF NOT EXISTS raid_votes_target_idx ON raid_votes(target_user_id);
+'''
 # Reference data mirrored from pokebattler. Kept in its own schema
 POKEDEX_SCHEMA = '''
 CREATE SCHEMA IF NOT EXISTS pokedex;
@@ -175,6 +187,7 @@ async def initialize_database():
   await conn.execute(REQUEST_CHANNELS)
   await conn.execute(RECENT_PARTICIPATION_TABLE)
   await conn.execute(REQUEST_TABLE)
+  await conn.execute(RAID_VOTES)
   await conn.execute(RAID_STICKIES)
   await conn.execute(POKEDEX_SCHEMA)
   #await conn.execute(friend_code_table_update)
