@@ -19,6 +19,69 @@ DEX_TYPES = ("BUG", "DARK", "DRAGON", "ELECTRIC", "FAIRY", "FIGHTING", "FIRE", "
 DEX_FORM_CHOICES = [app_commands.Choice(name=option.title(), value=option) for option in DEX.TAG_FILTERS]
 
 
+def build_raid_bosses_embed(raids):
+    """Embed of cached bosses by tier. Empty tiers are omitted instead of hiding the whole list."""
+    mega_legendary, mega, elite, tier5, tier3, tier1 = [], [], [], [], [], []
+    sha_tier5, sha_tier3, sha_tier1 = [], [], []
+    for boss_name, raid_data in (raids or {}).items():
+        entries = raid_data if isinstance(raid_data, list) else [raid_data]
+        for data in entries:
+            _add_raid_boss_to_fields(
+                (boss_name or "").strip().title(),
+                data or {},
+                mega_legendary, mega, elite, tier5, tier3, tier1, sha_tier5, sha_tier3, sha_tier1,
+            )
+
+    embed = discord.Embed(title="Raid Bosses")
+    for name, bosses in (
+        ("Mega Legendary", mega_legendary),
+        ("Mega", mega),
+        ("Elite", elite),
+        ("Tier 5", tier5),
+        ("Tier 3", tier3),
+        ("Tier 1", tier1),
+        ("Shadow Tier 5", sha_tier5),
+        ("Shadow Tier 3", sha_tier3),
+        ("Shadow Tier 1", sha_tier1),
+    ):
+        if bosses:
+            embed.add_field(name=name, value="\n".join(sorted(bosses)), inline=False)
+    if not embed.fields:
+        embed.description = "No raid bosses cached. Try `/refresh_raids`."
+    return embed
+
+
+def _add_raid_boss_to_fields(display, data, mega_legendary, mega, elite, tier5, tier3, tier1, sha_tier5, sha_tier3, sha_tier1):
+    if not display:
+        return
+    tier = data.get("tier") or ""
+    pokemon = data.get("pokemon") or ""
+    if "SHADOW" in pokemon and not display.lower().startswith("shadow "):
+        display = f"Shadow {display}"
+    if "SHADOW" not in pokemon:
+        match tier:
+            case "RAID_LEVEL_1":
+                tier1.append(display)
+            case "RAID_LEVEL_3":
+                tier3.append(display)
+            case "RAID_LEVEL_5" | "RAID_LEVEL_ULTRA_BEAST":
+                tier5.append(display)
+            case "RAID_LEVEL_ELITE":
+                elite.append(display)
+            case "RAID_LEVEL_MEGA_5":
+                mega_legendary.append(display)
+            case "RAID_LEVEL_MEGA":
+                mega.append(display)
+    else:
+        match tier:
+            case "RAID_LEVEL_1_SHADOW" | "RAID_LEVEL_1":
+                sha_tier1.append(display)
+            case "RAID_LEVEL_3_SHADOW" | "RAID_LEVEL_3":
+                sha_tier3.append(display)
+            case "RAID_LEVEL_5_SHADOW" | "RAID_LEVEL_5":
+                sha_tier5.append(display)
+
+
 class GeneralCommands(commands.Cog):
     """General Commands Cog"""
     def __init__(self, bot):
@@ -117,61 +180,7 @@ class GeneralCommands(commands.Cog):
     @app_commands.command(name="raid_bosses", description="Gives a list of all raid bosses as per Pokebattler.")
     async def raid_bosses(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=False)
-        raids = self.__bot.dex.raids or {}
-        tier1 = []
-        tier3 = []
-        tier5 = []
-        mega = []
-        sha_tier1 = []
-        sha_tier3 = []
-        sha_tier5 = []
-
-        for boss_name, raid_data in raids.items():
-            display = (boss_name or "").strip().title()
-            if not display:
-                continue
-            tier = (raid_data or {}).get("tier") or ""
-            if "SHADOW" not in raid_data.get("pokemon"):
-                match tier:
-                    case "RAID_LEVEL_1":
-                        tier1.append(display)
-                    case "RAID_LEVEL_3":
-                        tier3.append(display)
-                    case "RAID_LEVEL_5" | "RAID_LEVEL_ULTRA_BEAST":
-                        tier5.append(display)
-                    case "RAID_LEVEL_MEGA" | "RAID_LEVEL_ELITE":
-                        mega.append(display)
-                    
-            else:
-                match tier:
-                    case "RAID_LEVEL_1_SHADOW" | "RAID_LEVEL_1":
-                        sha_tier1.append(display)
-                    case "RAID_LEVEL_3_SHADOW" | "RAID_LEVEL_3":
-                        sha_tier3.append(display)
-                    case "RAID_LEVEL_5_SHADOW" | "RAID_LEVEL_5":
-                        sha_tier5.append(display)
-
-        tier1.sort()
-        tier3.sort()
-        tier5.sort()
-        mega.sort()
-        sha_tier1.sort()
-        sha_tier3.sort()
-        sha_tier5.sort()
-
-        embed = discord.Embed(title="Raid Bosses")
-        
-        if tier1 and tier3 and tier5 and mega and sha_tier1 and sha_tier3 and sha_tier5:
-            embed.add_field(name="Mega", value="\n".join(mega), inline=False)
-            embed.add_field(name="Tier 5 ", value="\n".join(tier5), inline=False)
-            embed.add_field(name="Tier 3", value="\n".join(tier3), inline=False)
-            embed.add_field(name="Tier 1", value="\n".join(tier1), inline=False)
-            embed.add_field(name="Shadow Tier 5", value="\n".join(sha_tier5), inline=False)
-            embed.add_field(name="Shadow Tier 3", value="\n".join(sha_tier3), inline=False)
-            embed.add_field(name="Shadow Tier 1", value="\n".join(sha_tier1), inline=False)
-        else:
-            embed.description = "No raid bosses cached. Try `/refresh_raids`."
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=build_raid_bosses_embed(self.__bot.dex.raids or {}))
 
     @app_commands.command(name="weekly_raids", description="This week's and next week's raid bosses, with counters.")
     async def weekly_raids(self, interaction: discord.Interaction):
