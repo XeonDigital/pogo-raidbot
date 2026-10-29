@@ -24,6 +24,19 @@ GUILD_NAME = "Test Guild"
 CURRENT_RAID_BOSSES = {"Mewtwo"}
 
 
+def _is_current_raid_boss(name):
+    lowered = (name or "").lower()
+    return any(boss.lower() in lowered for boss in CURRENT_RAID_BOSSES)
+
+
+def _matching_rotation_bosses(name):
+    lowered = (name or "").lower()
+    for boss in CURRENT_RAID_BOSSES:
+        if boss.lower() in lowered:
+            return [SimpleNamespace(name=boss, slash_tier="5", shadow="shadow" in lowered)]
+    return []
+
+
 @pytest.fixture
 def run():
     return asyncio.run
@@ -108,7 +121,8 @@ def make_bot():
             categories_allowed=categories_allowed,
             lobby_remove_trigger=asyncio.Event(),
             dex=SimpleNamespace(
-                is_current_raid_boss=Mock(side_effect=lambda name: name in CURRENT_RAID_BOSSES),
+                is_current_raid_boss=Mock(side_effect=_is_current_raid_boss),
+                matching_rotation_bosses=Mock(side_effect=_matching_rotation_bosses),
             ),
         )
 

@@ -126,6 +126,18 @@ class TestGetCounter:
         assert "No pokemon given" in interaction.followup.send.await_args.args[0]
         interaction.channel.send.assert_not_called()
 
+    def test_unknown_weather_is_accepted(self, run, make_bot, make_interaction):
+        bot = make_bot()
+        interaction = make_interaction()
+        embed = SimpleNamespace(set_thumbnail=Mock())
+        bot.dex.get_counter_for = AsyncMock(return_value=embed)
+        with patch("handlers.pokebattler.api_helper.validate_tier", return_value=(True, "5")), \
+                patch("handlers.pokebattler.api_helper.validate_pokemon", return_value=(True, "Mewtwo", "", "go:pm150")):
+            run(get_counter(bot, interaction, "5", "Mewtwo", "unknown"))
+        bot.dex.get_counter_for.assert_awaited_once_with(bot, "Mewtwo", "5", "unknown")
+        interaction.channel.send.assert_awaited_once()
+        assert "Counters sent" in interaction.followup.send.await_args.args[0]
+
     def test_invalid_arguments_are_sent_together(self, run, make_bot, make_interaction):
         bot = make_bot()
         interaction = make_interaction()

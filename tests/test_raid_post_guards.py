@@ -1,9 +1,10 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
+import discord
 import pytest
 
-from handlers.raid_handler import process_raid
+from handlers.raid_handler import RaidTierPickView, process_raid
 
 INVALID_RAID = (False, "You gave an invalid **Weather Condition** of [`bogus`].\n", "5 Mewtwo Clear 5")
 
@@ -169,3 +170,146 @@ class TestRaidListing:
         post_raid(run, interaction, bot)
 
         assert_raid_was_listed(interaction, followup_text)
+
+
+class TestRaidBossInference:
+    def test_missing_tier_is_inferred_when_only_one_rotation_match(self, run, make_context, ready_to_list, mock_get_counter, followup_text):
+        interaction, bot = make_context()
+        post_raid(run, interaction, bot, weather="unknown", tier=None)
+
+        assert_raid_was_listed(interaction, followup_text)
+        mock_get_counter.assert_awaited_once_with(bot, interaction, "5", "Mewtwo", "unknown", interaction.channel, False)
+
+    def test_ambiguous_boss_prompts_for_tier(self, run, make_context, followup_text):
+        interaction, bot = make_context()
+        bot.dex.matching_rotation_bosses = Mock(return_value=[
+            SimpleNamespace(name="Mewtwo", slash_tier="5", shadow=False),
+            SimpleNamespace(name="Mewtwo", slash_tier="5", shadow=True),
+        ])
+        post_raid(run, interaction, bot, tier=None)
+
+        message = followup_text(interaction)
+        assert "more than one raid tier" in message
+        view = interaction.followup.send.await_args.kwargs["view"]
+        labels = [item.label for item in view.children]
+        assert "5" in labels
+        assert "5 Shadow" in labels
+        assert_raid_was_not_listed(interaction)
+
+    def test_provided_tier_disambiguates_when_slash_tiers_differ(self, run, make_context, ready_to_list, mock_get_counter, followup_text):
+        interaction, bot = make_context()
+        bot.dex.is_current_raid_boss = Mock(return_value=True)
+        bot.dex.matching_rotation_bosses = Mock(return_value=[
+            SimpleNamespace(name="Gengar", slash_tier="3", shadow=False),
+            SimpleNamespace(name="Gengar", slash_tier="mega", shadow=False),
+        ])
+        post_raid(run, interaction, bot, pokemon="Gengar", tier="mega")
+
+        assert_raid_was_listed(interaction, followup_text)
+        mock_get_counter.assert_awaited_once_with(bot, interaction, "mega", "Gengar", "Clear", interaction.channel, False)
+
+    def test_already_resolved_skips_the_tier_prompt(self, run, make_context, ready_to_list, followup_text):
+        interaction, bot = make_context()
+        bot.dex.matching_rotation_bosses = Mock(return_value=[
+            SimpleNamespace(name="Mewtwo", slash_tier="5", shadow=False),
+            SimpleNamespace(name="Mewtwo", slash_tier="5", shadow=True),
+        ])
+        run(process_raid(interaction, bot, "5", "Shadow Mewtwo", "Clear", "5", True))
+
+        assert_raid_was_listed(interaction, followup_text)
+        bot.dex.matching_rotation_bosses.assert_not_called()
+
+    def test_shadow_button_continues_with_that_form(self, run):
+        matches = [
+            SimpleNamespace(name="Mewtwo", slash_tier="5", shadow=False),
+            SimpleNamespace(name="Mewtwo", slash_tier="5", shadow=True),
+        ]
+        view = RaidTierPickView(None, "Mewtwo", "unknown", "5", matches, owner_id=5)
+        button = next(item for item in view.children if item.match.shadow)
+        interaction = SimpleNamespace(
+            user=SimpleNamespace(id=5),
+            response=SimpleNamespace(
+                edit_message=AsyncMock(),
+                is_done=Mock(return_value=True),
+                defer=AsyncMock(),
+            ),
+        )
+        with patch("handlers.raid_handler.process_raid", new_callable=AsyncMock) as mocked:
+            run(button.callback(interaction))
+
+        mocked.assert_awaited_once_with(interaction, None, "5", "Shadow Mewtwo", "unknown", "5", True)
+
+    def test_mega_button_is_labeled_mega(self):
+        view = RaidTierPickView(
+            None, "Gengar", "unknown", "5",
+            [SimpleNamespace(name="Gengar", slash_tier="mega", shadow=False)],
+            owner_id=5,
+        )
+        assert view.children[0].label == "Mega"
+
+    def test_same_slash_tier_still_prompts_when_shadow_and_regular_both_match(self, run, make_context, followup_text):
+        interaction, bot = make_context()
+        bot.dex.matching_rotation_bosses = Mock(return_value=[
+            SimpleNamespace(name="Mewtwo", slash_tier="5", shadow=False),
+            SimpleNamespace(name="Mewtwo", slash_tier="5", shadow=True),
+        ])
+        post_raid(run, interaction, bot, tier="5")
+
+        assert "more than one raid tier" in followup_text(interaction)
+        assert_raid_was_not_listed(interaction)
+
+    def test_blank_weather_defaults_to_unknown(self, run, make_context, ready_to_list, mock_get_counter, followup_text):
+        interaction, bot = make_context()
+        post_raid(run, interaction, bot, weather="", tier=None)
+
+        assert_raid_was_listed(interaction, followup_text)
+        mock_get_counter.assert_awaited_once_with(bot, interaction, "5", "Mewtwo", "unknown", interaction.channel, False)
+
+    def test_unknown_pokemon_without_tier_is_rejected(self, run, make_context, followup_text):
+        interaction, bot = make_context()
+        post_raid(run, interaction, bot, pokemon="missingno", tier=None)
+
+        assert "invalid **Pokemon Name**" in followup_text(interaction)
+        assert_raid_was_not_listed(interaction)
+
+    def test_known_pokemon_not_in_rotation_without_tier_is_rejected(self, run, make_context):
+        interaction, bot = make_context()
+        with patch("handlers.raid_handler.validate_pokemon", return_value=(True, "Dialga", "", "go:pm483")):
+            post_raid(run, interaction, bot, pokemon="Dialga", tier=None)
+
+        assert "not currently in rotation" in sent_error_description(bot)
+        assert "Dialga" in sent_error_description(bot)
+        assert_raid_was_not_listed(interaction)
+
+    def test_tier_prompt_rejects_other_users(self, run):
+        view = RaidTierPickView(None, "Mewtwo", "unknown", "5", [
+            SimpleNamespace(name="Mewtwo", slash_tier="5", shadow=False),
+        ], owner_id=5)
+        other = SimpleNamespace(
+            user=SimpleNamespace(id=99),
+            response=SimpleNamespace(send_message=AsyncMock()),
+        )
+
+        assert run(view.interaction_check(other)) is False
+        other.response.send_message.assert_awaited_once()
+
+    def test_tier_prompt_disables_buttons_on_timeout(self, run):
+        view = RaidTierPickView(None, "Mewtwo", "unknown", "5", [
+            SimpleNamespace(name="Mewtwo", slash_tier="5", shadow=False),
+        ], owner_id=5)
+        view.message = SimpleNamespace(edit=AsyncMock())
+
+        run(view.on_timeout())
+
+        assert view.children[0].disabled is True
+        view.message.edit.assert_awaited_once_with(view=view)
+
+    def test_tier_prompt_timeout_swallows_edit_errors(self, run):
+        view = RaidTierPickView(None, "Mewtwo", "unknown", "5", [
+            SimpleNamespace(name="Mewtwo", slash_tier="5", shadow=False),
+        ], owner_id=5)
+        view.message = SimpleNamespace(edit=AsyncMock(side_effect=discord.DiscordException("gone")))
+
+        run(view.on_timeout())
+
+        assert view.children[0].disabled is True

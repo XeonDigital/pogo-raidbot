@@ -33,6 +33,7 @@ valid_tiers = [
     "RAID_LEVEL_5",
     "RAID_LEVEL_6",
     "RAID_LEVEL_MEGA",
+    "RAID_LEVEL_MEGA_5",
     "RAID_LEVEL_ELITE",
     "RAID_LEVEL_1_SHADOW",
     "RAID_LEVEL_3_SHADOW",
@@ -43,14 +44,25 @@ def current_tier_valid(tier):
     return tier in valid_tiers
 
 def add_tier_to_raid_data(raid, tier):
-    raid.update({"tier":tier})
+    raid = dict(raid or {})
+    raid["tier"] = tier
     return raid
 
 def filter_current_raids(raids):
-    return {AH.format_pokemon_name(raid.get("pokemon")):add_tier_to_raid_data(raid, tier.get("tier"))
-                for tier in raids.get("tiers") 
-                    if current_tier_valid(tier.get("tier"))
-                        for raid in tier.get("raids")}
+    grouped = {}
+    for tier in (raids or {}).get("tiers") or []:
+        tier_id = tier.get("tier")
+        if not current_tier_valid(tier_id):
+            continue
+        for raid in tier.get("raids") or []:
+            pokemon = raid.get("pokemon")
+            if not pokemon:
+                continue
+            name = AH.format_pokemon_name(pokemon)
+            if not name:
+                continue
+            grouped.setdefault(name, []).append(add_tier_to_raid_data(raid, tier_id))
+    return grouped
 
 def fetch_raids_filtered():
     return filter_current_raids(fetch_raids())

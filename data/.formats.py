@@ -37,7 +37,8 @@ WEATHER_TO_EMOJI =\
   "partlycloudy":"⛅",
   "rainy":"🌧️",
   "snow":"❄️",
-  "fog":"🌫️"
+  "fog":"🌫️",
+  "unknown":"❓"
 }
 
 WEATHER_TO_OUTPUT =\
@@ -49,7 +50,8 @@ WEATHER_TO_OUTPUT =\
   "partlycloudy":"Partially Cloudy",
   "rainy":"Rainy",
   "snow":"Snow",
-  "fog":"Fog"
+  "fog":"Fog",
+  "unknown":"Unknown"
 }
 
 WEATHER_TO_POKEBATTLER =\
@@ -61,7 +63,8 @@ WEATHER_TO_POKEBATTLER =\
   "cloudy":"OVERCAST",
   "windy":"WINDY",
   "snow":"SNOW",
-  "fog":"FOG"
+  "fog":"FOG",
+  "unknown":"NO_WEATHER"
 }
 
 TIER_TO_ICON =\
