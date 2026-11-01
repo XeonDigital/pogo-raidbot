@@ -117,60 +117,38 @@ class GeneralCommands(commands.Cog):
     @app_commands.command(name="raid_bosses", description="Gives a list of all raid bosses as per Pokebattler.")
     async def raid_bosses(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=False)
-        raids = self.__bot.dex.raids or {}
-        tier1 = []
-        tier3 = []
-        tier5 = []
-        mega = []
-        sha_tier1 = []
-        sha_tier3 = []
-        sha_tier5 = []
-
-        for boss_name, raid_data in raids.items():
-            display = (boss_name or "").strip().title()
-            if not display:
-                continue
-            tier = (raid_data or {}).get("tier") or ""
-            if "SHADOW" not in raid_data.get("pokemon"):
-                match tier:
-                    case "RAID_LEVEL_1":
-                        tier1.append(display)
-                    case "RAID_LEVEL_3":
-                        tier3.append(display)
-                    case "RAID_LEVEL_5" | "RAID_LEVEL_ULTRA_BEAST":
-                        tier5.append(display)
-                    case "RAID_LEVEL_MEGA" | "RAID_LEVEL_ELITE":
-                        mega.append(display)
-                    
-            else:
-                match tier:
-                    case "RAID_LEVEL_1_SHADOW" | "RAID_LEVEL_1":
-                        sha_tier1.append(display)
-                    case "RAID_LEVEL_3_SHADOW" | "RAID_LEVEL_3":
-                        sha_tier3.append(display)
-                    case "RAID_LEVEL_5_SHADOW" | "RAID_LEVEL_5":
-                        sha_tier5.append(display)
-
-        tier1.sort()
-        tier3.sort()
-        tier5.sort()
-        mega.sort()
-        sha_tier1.sort()
-        sha_tier3.sort()
-        sha_tier5.sort()
+        tier1, tier3, tier5, mega, sha_tier1, sha_tier3, sha_tier5, max_tier1, max_tier2, max_tier3, max_tier4, max_tier5, max_tier6 = self.__bot.dex.get_current_raids()
 
         embed = discord.Embed(title="Raid Bosses")
-        
-        if tier1 and tier3 and tier5 and mega and sha_tier1 and sha_tier3 and sha_tier5:
+        if not tier1 and not tier3 and not tier5 and not mega and not sha_tier1 and not sha_tier3 and not sha_tier5 and not max_tier1 and not max_tier2 and not max_tier3 and not max_tier4 and not max_tier5 and not max_tier6:
+            embed.description = "No raid bosses cached. Try `/refresh_raids`. If the issue still persists please contact the mods or the coding team to fix this issue "
+        if mega:
             embed.add_field(name="Mega", value="\n".join(mega), inline=False)
+        if tier5:
             embed.add_field(name="Tier 5 ", value="\n".join(tier5), inline=False)
+        if tier3:
             embed.add_field(name="Tier 3", value="\n".join(tier3), inline=False)
+        if tier1:
             embed.add_field(name="Tier 1", value="\n".join(tier1), inline=False)
+        if sha_tier5:
             embed.add_field(name="Shadow Tier 5", value="\n".join(sha_tier5), inline=False)
+        if sha_tier3:
             embed.add_field(name="Shadow Tier 3", value="\n".join(sha_tier3), inline=False)
+        if sha_tier1:
             embed.add_field(name="Shadow Tier 1", value="\n".join(sha_tier1), inline=False)
-        else:
-            embed.description = "No raid bosses cached. Try `/refresh_raids`."
+        if max_tier1:
+            embed.add_field(name="Max Tier 1", value="\n".join(max_tier1), inline=False)
+        if max_tier2:
+            embed.add_field(name="Max Tier 2", value="\n".join(max_tier2), inline=False)
+        if max_tier3:
+            embed.add_field(name="Max Tier 3", value="\n".join(max_tier3), inline=False)
+        if max_tier4:
+            embed.add_field(name="Max Tier 4", value="\n".join(max_tier4), inline=False)
+        if max_tier5:
+            embed.add_field(name="Legendary Dynamax", value="\n".join(max_tier5), inline=False)
+        if max_tier6:
+            embed.add_field(name="Gigantamax", value="\n".join(max_tier6), inline=False)
+        embed.set_footer(text = "If any of this information is incorrect please contact the coding team/mods as soon as possible")
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="weekly_raids", description="This week's and next week's raid bosses, with counters.")

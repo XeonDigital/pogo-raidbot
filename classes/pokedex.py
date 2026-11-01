@@ -156,3 +156,69 @@ class Pokedex():
         """Pokebattler id for a name that already passed ``validate_pokemon``."""
         match = find_pokemon(normalize_shadow_pokemon_name_for_lookup(name), mega="mega" in tier.lower())
         return match["pokemon_id"]
+    
+    def get_current_raids(self):
+        raids = self.raids or {}
+        tier1 = []
+        tier3 = []
+        tier5 = []
+        mega = []
+        sha_tier1 = []
+        sha_tier3 = []
+        sha_tier5 = []
+        max_tier1 = []
+        max_tier2 = []
+        max_tier3 = []
+        max_tier4 = []
+        max_tier5 = []
+        max_tier6 = []
+        for boss_name, raid_data in raids.items():
+            display = (boss_name or "").strip().title()
+            if not display:
+                continue
+            tier = (raid_data or {}).get("tier") or ""
+            if "SHADOW" not in raid_data.get("pokemon"):
+                match tier:
+                    case "RAID_LEVEL_1":
+                        tier1.append(display)
+                    case "RAID_LEVEL_3":
+                        tier3.append(display)
+                    case "RAID_LEVEL_5" | "RAID_LEVEL_ULTRA_BEAST":
+                        tier5.append(display)
+                    case "RAID_LEVEL_MEGA" | "RAID_LEVEL_ELITE":
+                        mega.append(display)
+                    case "RAID_LEVEL_1_MAX":
+                        max_tier1.append(display)
+                    case "RAID_LEVEL_2_MAX":
+                        max_tier2.append(display)
+                    case "RAID_LEVEL_3_MAX":
+                        max_tier3.append(display)
+                    case "RAID_LEVEL4_MAX":
+                        max_tier4.append(display)
+                    case "RAID_LEVEL5_MAX":
+                        max_tier5.append(display)
+                    case "RAID_LEVEL_6_MAX":
+                        max_tier6.append(display)
+            else:
+                match tier:
+                    case "RAID_LEVEL_1_SHADOW" | "RAID_LEVEL_1":
+                        sha_tier1.append(display)
+                    case "RAID_LEVEL_3_SHADOW" | "RAID_LEVEL_3":
+                        sha_tier3.append(display)
+                    case "RAID_LEVEL_5_SHADOW" | "RAID_LEVEL_5":
+                        sha_tier5.append(display)
+
+        tier1.sort()
+        tier3.sort()
+        tier5.sort()
+        mega.sort()
+        sha_tier1.sort()
+        sha_tier3.sort()
+        sha_tier5.sort()
+        max_tier1.sort()
+        max_tier2.sort()
+        max_tier3.sort()
+        max_tier4.sort()
+        max_tier5.sort()
+        max_tier6.sort()
+        return  tier1 ,tier3 ,tier5 ,mega ,sha_tier1 ,sha_tier3 ,sha_tier5 ,max_tier1 ,max_tier2 ,max_tier3 ,max_tier4 ,max_tier5 ,max_tier6
