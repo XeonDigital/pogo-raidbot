@@ -1,6 +1,8 @@
 """
 Pokedex class that wraps pokebattler API
 """
+from types import SimpleNamespace
+
 import discord
 
 from data import formats as F
@@ -9,6 +11,39 @@ from handlers.pokebattler import pokebattler_api as API
 from handlers.pokebattler.pokemon_images import fetch_asset_index
 from handlers.pokebattler.pokemon_lookup import DEFAULT_NAMES, build_entries, display_pokemon, find_pokemon, load_cache, max_battle_bosses, save_pokemon
 from pogo_raid_lib import normalize_shadow_pokemon_name_for_lookup
+
+RAID_LEVEL_TO_SLASH_TIER = {
+    "RAID_LEVEL_1": "1",
+    "RAID_LEVEL_1_SHADOW": "1",
+    "RAID_LEVEL_3": "3",
+    "RAID_LEVEL_3_SHADOW": "3",
+    "RAID_LEVEL_5": "5",
+    "RAID_LEVEL_5_SHADOW": "5",
+    "RAID_LEVEL_ULTRA_BEAST": "5",
+    "RAID_LEVEL_ELITE": "5",
+    "RAID_LEVEL_MEGA": "mega",
+    "RAID_LEVEL_MEGA_5": "mega",
+}
+
+
+def slash_tier_from_raid_level(level):
+    return RAID_LEVEL_TO_SLASH_TIER.get(level or "")
+
+
+def is_shadow_raid(data):
+    data = data or {}
+    pokemon = data.get("pokemon") or ""
+    tier = data.get("tier") or ""
+    return "SHADOW" in pokemon or str(tier).endswith("_SHADOW")
+
+
+def iter_raid_entries(raids):
+    for boss_name, data in (raids or {}).items():
+        if isinstance(data, list):
+            for entry in data:
+                yield boss_name, entry or {}
+        else:
+            yield boss_name, data or {}
 
 class Pokedex():
     def __init__(self):
@@ -58,8 +93,7 @@ class Pokedex():
         - Shadow bosses: includes both "Shadow Boss" and "Boss" (so users can type either)
         """
         accepted = set()
-        raids = self.raids or {}
-        for boss_name, raid_data in raids.items():
+        for boss_name, raid_data in iter_raid_entries(self.raids):
             canonical = (boss_name or "").strip()
             if not canonical:
                 continue
@@ -67,9 +101,13 @@ class Pokedex():
             display = canonical.title()
             accepted.add(display)
 
-            tier = (raid_data or {}).get("tier") or ""
-            if isinstance(tier, str) and tier.endswith("_SHADOW"):
-                accepted.add(f"Shadow {display}")
+            if is_shadow_raid(raid_data):
+                if display.lower().startswith("shadow "):
+                    unprefixed = display[7:].strip()
+                    if unprefixed:
+                        accepted.add(unprefixed.title())
+                else:
+                    accepted.add(f"Shadow {display}")
 
         return sorted(accepted)
 
@@ -94,6 +132,37 @@ class Pokedex():
             return False
         accepted = {self.normalize_raid_boss_name(n) for n in self.current_raid_bosses()}
         return normalized_name in accepted
+
+    def matching_rotation_bosses(self, pokemon_name):
+        """Current-rotation bosses that match the typed name.
+
+        Typing ``shadow`` keeps only shadow forms. Otherwise every matching
+        form is returned so a later tier pick can disambiguate.
+
+        Example: rotation has T5 Mewtwo and Shadow T5 Mewtwo.
+        ``Mewtwo`` returns both; ``shadow mewtwo`` returns only the shadow form.
+        """
+        needle = self.normalize_raid_boss_name(pokemon_name).replace("-", " ")
+        if not needle:
+            return []
+        wants_shadow = "shadow" in (pokemon_name or "").lower()
+        matches = []
+        for boss_name, data in iter_raid_entries(self.raids):
+            haystack = self.normalize_raid_boss_name(boss_name).replace("-", " ")
+            if haystack != needle:
+                continue
+            shadow = is_shadow_raid(data)
+            if wants_shadow and not shadow:
+                continue
+            slash_tier = slash_tier_from_raid_level(data.get("tier"))
+            if not slash_tier:
+                continue
+            matches.append(SimpleNamespace(
+                name=haystack.title(),
+                slash_tier=slash_tier,
+                shadow=shadow,
+            ))
+        return matches
 
     def get_move_data(self, name):
         move = next((move for move in self.moves if move.get("moveId") == name), None)
@@ -140,7 +209,7 @@ class Pokedex():
         tier = tier.upper()
         tier = tier.replace("T","")
         tier_id = f"RAID_LEVEL_{tier}".upper()
-        weather_id = F.WEATHER_TO_POKEBATTLER.get(weather.lower())
+        weather_id = F.WEATHER_TO_POKEBATTLER.get((weather or "unknown").lower(), "NO_WEATHER")
         print(f"{name_id}, {tier_id}, {weather_id}")
         result, link = self.get_counter_data(name_id, tier_id, weather_id)
         link = link.replace("fight.", "www.")

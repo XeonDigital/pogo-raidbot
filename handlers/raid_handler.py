@@ -1,4 +1,11 @@
-"""Raid SQL statements and database interaction functions"""
+"""Raid listings: validate a host, post the channel embed, and track it in the database.
+
+``process_raid`` is the ``/raid`` entry point. It checks the channel and that the
+user is not already hosting, infers the boss from the current rotation (prompting
+for tier when more than one match exists), then lists the raid, optionally opens a
+lobby, posts counters, and updates the channel sticky. The rest of this module is
+SQL helpers for inserting, looking up, and deleting those listing rows.
+"""
 from datetime import datetime, timedelta, timezone
 
 import asyncpg
@@ -9,7 +16,7 @@ import handlers.helpers as H
 import handlers.request_handler as REQH
 import handlers.sticky_handler as SH
 from handlers.pokebattler.api_helper import get_counter
-from pogo_raid_lib import validate_and_format_message
+from pogo_raid_lib import validate_and_format_message, validate_pokemon, validate_tier
 
 NEW_RAID_INSERT = """
 INSERT INTO raids(message_id, time_registered, guild_id, channel_id, user_id, time_to_remove)
@@ -210,135 +217,264 @@ async def check_if_valid_raid_channel(bot, channel_id):
     return True
 
 
-async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name, weather, invite_slots):
-    from handlers.raid_lobby_handler import create_raid_lobby, get_lobby_data_by_user_id, get_raid_lobby_category_by_guild_id
+def optional_raid_tier(tier):
+    if tier is None:
+        return None
+    text = str(tier).strip()
+    if not text or text.lower() in ("none", "no tier provided"):
+        return None
+    return text
 
-    # no need to remove user msgs if we're using slash commands
-    # try:
-    #     await interaction.message.delete()
-    # except:
-    #     pass
-    # checks if the channel that ran the slash command was valid
+
+def canonical_slash_tier(tier):
+    ok, response = validate_tier(tier)
+    if not ok:
+        return None
+    return response.lower().replace("t", "")
+
+
+def listing_name_for_match(pokemon_name, match):
+    if match.shadow:
+        return f"Shadow {match.name}"
+    return match.name or pokemon_name
+
+
+class RaidTierButton(discord.ui.Button):
+    def __init__(self, match):
+        label = "Mega" if match.slash_tier == "mega" else str(match.slash_tier)
+        if match.shadow:
+            label = f"{label} Shadow"
+        super().__init__(label=label, style=discord.ButtonStyle.primary)
+        self.match = match
+
+    async def callback(self, interaction: discord.Interaction):
+        view = self.view
+        for item in view.children:
+            item.disabled = True
+        try:
+            await interaction.response.edit_message(view=view)
+        except discord.DiscordException:
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True)
+        pokemon_name = listing_name_for_match(view.pokemon_name, self.match)
+        await process_raid(
+            interaction,
+            view.bot,
+            self.match.slash_tier,
+            pokemon_name,
+            view.weather,
+            view.invite_slots,
+            True,
+        )
+
+
+class RaidTierPickView(discord.ui.View):
+    def __init__(self, bot, pokemon_name, weather, invite_slots, matches, owner_id):
+        super().__init__(timeout=120)
+        self.bot = bot
+        self.pokemon_name = pokemon_name
+        self.weather = weather
+        self.invite_slots = invite_slots
+        self.owner_id = owner_id
+        self.message = None
+        for match in matches:
+            self.add_item(RaidTierButton(match))
+
+    async def interaction_check(self, interaction: discord.Interaction):
+        if interaction.user.id == self.owner_id:
+            return True
+        await interaction.response.send_message(
+            "Only the person who ran this command can pick a tier.",
+            ephemeral=True,
+        )
+        return False
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.DiscordException:
+                pass
+
+
+async def prompt_for_raid_tier(interaction, bot, pokemon_name, weather, invite_slots, matches):
+    view = RaidTierPickView(bot, pokemon_name, weather, invite_slots, matches, interaction.user.id)
+    view.message = await interaction.followup.send(
+        "That Pokémon is in more than one raid tier right now. Pick which one you're hosting.",
+        view=view,
+        ephemeral=True,
+        wait=True,
+    )
+
+
+async def resolve_raid_boss(interaction, bot, tier, pokemon_name, weather, invite_slots):
+    """Infer slash tier from the current rotation, or ask the host to pick.
+
+    Returns (tier, pokemon_name) when listing can continue, otherwise None.
+    """
+    provided_tier = optional_raid_tier(tier)
+    matches = bot.dex.matching_rotation_bosses(pokemon_name)
+    if provided_tier:
+        canonical = canonical_slash_tier(provided_tier)
+        matches = [match for match in matches if canonical and match.slash_tier == canonical]
+        if not matches:
+            return provided_tier, pokemon_name
+
+    if not matches:
+        is_valid, response, _, _ = validate_pokemon(pokemon_name, "5")
+        if not is_valid:
+            await interaction.followup.send(H.guild_member_dm(interaction.guild.name, response), ephemeral=True)
+            return None
+        embed = discord.Embed(
+            title="Error",
+            description=f"That pokemon ({pokemon_name}) is not currently in rotation. If you believe this is an error, please contact TheStaplergun#6920.",
+        )
+        await bot.send_ignore_error(interaction.user, " ", embed=embed)
+        return None
+
+    if len(matches) > 1:
+        await prompt_for_raid_tier(interaction, bot, pokemon_name, weather, invite_slots, matches)
+        return None
+
+    match = matches[0]
+    return match.slash_tier, listing_name_for_match(pokemon_name, match)
+
+
+async def reject_if_cannot_host(interaction, bot, invite_slots):
+    """Return invite_slots if hosting can continue, otherwise None."""
+    from handlers.raid_lobby_handler import get_lobby_data_by_user_id
+
     if not await check_if_valid_raid_channel(bot, interaction.channel.id):
         print(f"[i] Please enter the command in the valid raid channel")
         await interaction.followup.send(f"Please enter the command in the correct raid channel")
-        return
-    # checks if they are in a raid
+        return None
     if await check_if_in_raid(interaction, bot, interaction.user.id):
         await interaction.followup.send(H.guild_member_dm(interaction.guild.name, "You are already in a raid."))
-        return
-    # checks if they have a lobby opened
+        return None
     if await get_lobby_data_by_user_id(bot, interaction.user.id):
         await interaction.followup.send(H.guild_member_dm(interaction.guild.name, "You currently have a lobby open. Please close your old lobby and retry."))
-        return
-    # Checkes if they are a verified raid host
+        return None
     is_verified = discord.utils.get(interaction.user.roles, name="Verified Raid Host")
     try:
-        # Makes sure that the invites slots input is valid
         invite_slots = int(invite_slots)
         if not is_verified and invite_slots > 5:
             embed = discord.Embed(title="Error", description="To host a raid with more than 5 users, you must be verified by the moderators of this server and given the 'Verified Raid Host' role to show you understand how to host a large party raid.")
             await bot.send_ignore_error(interaction.user, "", embed=embed)
-            return
+            return None
     except ValueError:
         pass
-    # Checks if the rest of the input is valid
+    return invite_slots
+
+
+async def resolve_and_validate_raid(interaction, bot, tier, pokemon_name, weather, invite_slots, already_resolved):
+    """Return (tier, pokemon_name, weather, embed) if the raid can be listed, otherwise None."""
+    if not weather or str(weather).strip().lower() in ("no weather condition provided",):
+        weather = "unknown"
+    if not already_resolved:
+        resolved = await resolve_raid_boss(interaction, bot, tier, pokemon_name, weather, invite_slots)
+        if resolved is None:
+            return None
+        tier, pokemon_name = resolved
     raid_is_valid, response, suggestion = validate_and_format_message(interaction,
                                                                         tier,
                                                                         pokemon_name,
                                                                         weather,
                                                                         invite_slots)
-    if raid_is_valid:
-        temp = response.title
-        temp = temp.replace("-Altered", "")
-        temp = temp.replace("-Origin","")
-        temp = temp.replace("-", " ")
-        # Checks if the pokemon is in a the dex list
-        if not bot.dex.is_current_raid_boss(temp):
-            embed = discord.Embed(title="Error", description=f"That pokemon ({temp}) is not currently in rotation. If you believe this is an error, please contact TheStaplergun#6920.")
-            await bot.send_ignore_error(interaction.user, " ", embed=embed)
-            return
-        #i think this is to attempt to remove the message? im not sure
-        remove_after_seconds = 900
-        channel_message_body = f'Raid hosted by {interaction.user.mention}\n'
-        _, _, _, role_id = await REQH.check_if_request_message_exists(bot, response.title, interaction.guild.id)
-        # im guessing that time to delete is it deleting the message but doesnt for some reason?
-        time_to_delete = datetime.now(tz=timezone.utc) + timedelta(seconds=remove_after_seconds)
-        message_to_dm = f"Your raid has been successfully listed.\nIt will automatically be deleted in just 15 minutes or at <t:{int(time_to_delete.timestamp())}:t>.\nPress the trash can to remove it at any time."
-        try:
-            #checks they can be dmed otherwise exit?
-            await interaction.user.send(H.guild_member_dm(interaction.guild.name, message_to_dm))
-        except discord.Forbidden:
-            await interaction.followup.send(interaction.user.name + ", I was unable to DM you. You must have your DMs open to coordinate raids.\nRaid will not be listed.", ephemeral=True)
-            return
-        # Allows people to be pinged when a raid pops up
-        request_channel_id = await REQH.get_request_channel(bot, interaction.guild.id)
-        if request_channel_id:
-            response.add_field(name="Want to be pinged for future raids?", value="📬 Add Role\n📪 Remove Role", inline=False)
-        # Gets the guild set channels
-        raid_lobby_category = await get_raid_lobby_category_by_guild_id(bot, interaction.guild.id)
-        start_string = ""
-        # Mentions the roles associated with the pokemon
-        if role_id:
-            role = discord.utils.get(interaction.guild.roles, id=role_id)
-            start_string = f'{role.mention}'
-        end_string = ""
-        #if the raid does has a role do this
-        if raid_lobby_category:
-            response.set_footer(text="📝 sign up")
-        else:
-            end_string = f' hosted by {interaction.user.mention}\n'
-        channel_message_body = start_string + end_string
-        # send the message to the channel specifically for raids
-        try:
-            message = await interaction.channel.send(channel_message_body, embed=response)
-            await interaction.followup.send("Raid listed in the channel.", ephemeral=True)
-        except discord.DiscordException as error:
-            print(f'[*][{interaction.guild.name}][{interaction.user}] An error occurred listing a raid. [{error}]')
-            return
-        # add the raid to the table
-        await add_raid_to_table(interaction, bot, message.id, interaction.guild.id, message.channel.id, interaction.user.id, time_to_delete)
-
-        await message.add_reaction("🗑️")
-        lobby = None
-        if raid_lobby_category:
-            # Gives them an extended 5 mintues to let it close or extend the lobby i guess
-            time_to_remove_lobby = time_to_delete + timedelta(seconds=300)
-            lobby = await create_raid_lobby(interaction, bot, message.id, interaction.user, time_to_remove_lobby, int(invite_slots))
-            await message.add_reaction("📝")
-
-        if request_channel_id:
-            # Adds the abilitiy to signup to be tagged for future raid from this pokemnon
-            try:
-                await message.add_reaction("📬")
-                await message.add_reaction("📪")
-            except discord.DiscordException as error:
-                print(f'[!] Exception occurred during adding request enrollment reactions. [{error}]')
-        if lobby:
-            # edits the message to include a link to the lobby
-            edited_message_content = f"{message.content}\n{lobby.mention} **<-lobby**"
-            await message.edit(content=edited_message_content)
-            try:
-                from handlers.events.interactions import log_slash_command_for_lobby
-                lobby_data = await get_lobby_data_by_user_id(bot, interaction.user.id)
-                await log_slash_command_for_lobby(bot, interaction, lobby, lobby_data)
-            except Exception as error:
-                print(f"[!] Failed to log /raid command. [{error}]")
-        print(f'[*][{interaction.guild}][{interaction.user.name}] Raid successfuly posted.')
-
-        try:
-            await get_counter(bot, interaction, tier, pokemon_name, weather, lobby or interaction.channel, False)
-        except Exception as error:
-            print(f"[!][{interaction.guild}][{interaction.user.name}] Failed to post raid counters. [{error}]")
-
-        try:
-            await SH.toggle_raid_sticky(bot, interaction, int(interaction.channel.id), int(interaction.guild.id))
-        except discord.DiscordException as error:
-            print(f'[!] Exception occurred during toggle of raid sticky. [{error}]')
-    else:
+    if not raid_is_valid:
         response += "---------\n"
         response += "*Here's the command you entered below. Suggestions were added. Check that it is correct and try again.*\n"
-        #await interaction.followup.send(response)
         correction_suggestion = f"/raid {suggestion}"
         await interaction.followup.send(response + "\n" + correction_suggestion)
         print(f'[!][{interaction.guild}][{interaction.user.name}] Raid failed to post due to invalid arguments.')
+        return None
+    temp = response.title
+    temp = temp.replace("-Altered", "")
+    temp = temp.replace("-Origin","")
+    temp = temp.replace("-", " ")
+    if not bot.dex.is_current_raid_boss(temp):
+        embed = discord.Embed(title="Error", description=f"That pokemon ({temp}) is not currently in rotation. If you believe this is an error, please contact TheStaplergun#6920.")
+        await bot.send_ignore_error(interaction.user, " ", embed=embed)
+        return None
+    return tier, pokemon_name, weather, response
+
+
+async def publish_raid_listing(interaction, bot, tier, pokemon_name, weather, invite_slots, embed):
+    from handlers.raid_lobby_handler import create_raid_lobby, get_lobby_data_by_user_id, get_raid_lobby_category_by_guild_id
+
+    remove_after_seconds = 900
+    _, _, _, role_id = await REQH.check_if_request_message_exists(bot, embed.title, interaction.guild.id)
+    time_to_delete = datetime.now(tz=timezone.utc) + timedelta(seconds=remove_after_seconds)
+    message_to_dm = f"Your raid has been successfully listed.\nIt will automatically be deleted in just 15 minutes or at <t:{int(time_to_delete.timestamp())}:t>.\nPress the trash can to remove it at any time."
+    try:
+        await interaction.user.send(H.guild_member_dm(interaction.guild.name, message_to_dm))
+    except discord.Forbidden:
+        await interaction.followup.send(interaction.user.name + ", I was unable to DM you. You must have your DMs open to coordinate raids.\nRaid will not be listed.", ephemeral=True)
+        return
+    request_channel_id = await REQH.get_request_channel(bot, interaction.guild.id)
+    if request_channel_id:
+        embed.add_field(name="Want to be pinged for future raids?", value="📬 Add Role\n📪 Remove Role", inline=False)
+    raid_lobby_category = await get_raid_lobby_category_by_guild_id(bot, interaction.guild.id)
+    start_string = ""
+    if role_id:
+        role = discord.utils.get(interaction.guild.roles, id=role_id)
+        start_string = f'{role.mention}'
+    end_string = ""
+    if raid_lobby_category:
+        embed.set_footer(text="📝 sign up")
+    else:
+        end_string = f' hosted by {interaction.user.mention}\n'
+    channel_message_body = start_string + end_string
+    try:
+        message = await interaction.channel.send(channel_message_body, embed=embed)
+        await interaction.followup.send("Raid listed in the channel.", ephemeral=True)
+    except discord.DiscordException as error:
+        print(f'[*][{interaction.guild.name}][{interaction.user}] An error occurred listing a raid. [{error}]')
+        return
+    await add_raid_to_table(interaction, bot, message.id, interaction.guild.id, message.channel.id, interaction.user.id, time_to_delete)
+
+    await message.add_reaction("🗑️")
+    lobby = None
+    if raid_lobby_category:
+        time_to_remove_lobby = time_to_delete + timedelta(seconds=300)
+        lobby = await create_raid_lobby(interaction, bot, message.id, interaction.user, time_to_remove_lobby, int(invite_slots))
+        await message.add_reaction("📝")
+
+    if request_channel_id:
+        try:
+            await message.add_reaction("📬")
+            await message.add_reaction("📪")
+        except discord.DiscordException as error:
+            print(f'[!] Exception occurred during adding request enrollment reactions. [{error}]')
+    if lobby:
+        edited_message_content = f"{message.content}\n{lobby.mention} **<-lobby**"
+        await message.edit(content=edited_message_content)
+        try:
+            from handlers.events.interactions import log_slash_command_for_lobby
+            lobby_data = await get_lobby_data_by_user_id(bot, interaction.user.id)
+            await log_slash_command_for_lobby(bot, interaction, lobby, lobby_data)
+        except Exception as error:
+            print(f"[!] Failed to log /raid command. [{error}]")
+    print(f'[*][{interaction.guild}][{interaction.user.name}] Raid successfuly posted.')
+
+    try:
+        await get_counter(bot, interaction, tier, pokemon_name, weather, lobby or interaction.channel, False)
+    except Exception as error:
+        print(f"[!][{interaction.guild}][{interaction.user.name}] Failed to post raid counters. [{error}]")
+
+    try:
+        await SH.toggle_raid_sticky(bot, interaction, int(interaction.channel.id), int(interaction.guild.id))
+    except discord.DiscordException as error:
+        print(f'[!] Exception occurred during toggle of raid sticky. [{error}]')
+
+
+async def process_raid(interaction: discord.Interaction, bot, tier, pokemon_name, weather, invite_slots, already_resolved=False):
+    invite_slots = await reject_if_cannot_host(interaction, bot, invite_slots)
+    if invite_slots is None:
+        return
+    resolved = await resolve_and_validate_raid(interaction, bot, tier, pokemon_name, weather, invite_slots, already_resolved)
+    if resolved is None:
+        return
+    tier, pokemon_name, weather, embed = resolved
+    await publish_raid_listing(interaction, bot, tier, pokemon_name, weather, invite_slots, embed)

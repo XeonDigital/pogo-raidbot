@@ -1,8 +1,9 @@
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
-from classes.pokedex import Pokedex
+from classes.pokedex import Pokedex, slash_tier_from_raid_level
 from handlers.pokebattler import pokemon_lookup as lookup
 from handlers.pokebattler.api_helper import format_pokemon_name
 from handlers.pokebattler.pokemon_images import image_url
@@ -524,7 +525,7 @@ def test_validate_tier_accepts_known_aliases():
 
 
 def test_validate_weather_accepts_keys_and_suggests_typos():
-    for weather in ("Clear", "rainy", "partlycloudy"):
+    for weather in ("Clear", "rainy", "partlycloudy", "unknown"):
         ok, response, suggestion = validate_weather_argument(weather)
         assert (ok, suggestion) == (True, "")
         assert response
@@ -537,6 +538,16 @@ def test_validate_weather_accepts_keys_and_suggests_typos():
     ok, _, suggestion = validate_weather_argument("xyzxyzxyz")
     assert ok is False
     assert suggestion == "xyzxyzxyz"
+
+
+def test_validate_and_format_message_unknown_weather_uses_the_unknown_emoji(pokemon_index, make_interaction):
+    ok, embed, suggestion = validate_and_format_message(
+        make_interaction(), "5", "Mewtwo", "unknown", "5"
+    )
+    assert ok is True
+    assert suggestion == ""
+    assert embed.fields[0].name == "Weather"
+    assert embed.fields[0].value == "❓"
 
 
 def test_validate_and_format_message_builds_a_raid_embed(pokemon_index, make_interaction):
@@ -582,7 +593,7 @@ def test_species_rows_prefers_the_base_form():
     assert ("GENGAR", 94, None) in rows
 
 
-def test_format_pokemon_name_and_filter_current_raids_shadow_overwrite():
+def test_format_pokemon_name_and_filter_current_raids_keeps_shadow_and_regular():
     assert format_pokemon_name("MEWTWO") == "Mewtwo"
     assert format_pokemon_name("MEWTWO_SHADOW_FORM") == "Mewtwo"
     assert format_pokemon_name("NINETALES_ALOLA_FORM") == "Alolan Ninetales"
@@ -593,11 +604,16 @@ def test_format_pokemon_name_and_filter_current_raids_shadow_overwrite():
             {"tier": "RAID_LEVEL_5", "raids": [{"pokemon": "MEWTWO"}]},
             {"tier": "RAID_LEVEL_5_SHADOW", "raids": [{"pokemon": "MEWTWO_SHADOW_FORM"}]},
             {"tier": "RAID_LEVEL_1", "raids": [{"pokemon": "CLEFAIRY"}]},
+            {"tier": "RAID_LEVEL_MEGA_5", "raids": [{"pokemon": "RAYQUAZA_MEGA"}]},
             {"tier": "RAID_LEVEL_5_MAX", "raids": [{"pokemon": "DIALGA"}]},
         ]
     })
-    assert raids["Mewtwo"]["tier"] == "RAID_LEVEL_5_SHADOW"
-    assert raids["Clefairy"]["tier"] == "RAID_LEVEL_1"
+    mewtwo_tiers = [entry["tier"] for entry in raids["Mewtwo"]]
+    assert "RAID_LEVEL_5" in mewtwo_tiers
+    assert "RAID_LEVEL_5_SHADOW" in mewtwo_tiers
+    assert len(mewtwo_tiers) == 2
+    assert raids["Clefairy"][0]["tier"] == "RAID_LEVEL_1"
+    assert raids["Mega Rayquaza"][0]["tier"] == "RAID_LEVEL_MEGA_5"
     assert "Dialga" not in raids
 
 
@@ -618,6 +634,16 @@ def test_current_raid_bosses_adds_shadow_spelling():
     assert dex.current_raid_bosses() == ["Mewtwo", "Regirock", "Shadow Mewtwo"]
 
 
+def test_current_raid_bosses_grouped_list_keeps_shadow_spelling():
+    dex = make_dex({
+        "Mewtwo": [
+            {"tier": "RAID_LEVEL_5", "pokemon": "MEWTWO"},
+            {"tier": "RAID_LEVEL_5_SHADOW", "pokemon": "MEWTWO_SHADOW_FORM"},
+        ],
+    })
+    assert dex.current_raid_bosses() == ["Mewtwo", "Shadow Mewtwo"]
+
+
 def test_is_current_raid_boss_accepts_shadow_wording():
     dex = make_dex({
         "Mewtwo": {"tier": "RAID_LEVEL_5_SHADOW", "pokemon": "MEWTWO_SHADOW_FORM"},
@@ -635,3 +661,84 @@ def test_hyphenated_rotation_name_does_not_match_after_space_fold():
     })
     assert dex.is_current_raid_boss("Landorus-Incarnate") is False
     assert dex.is_current_raid_boss("Landorus Incarnate") is False
+
+
+def test_slash_tier_from_raid_level_maps_known_buckets():
+    assert slash_tier_from_raid_level("RAID_LEVEL_1") == "1"
+    assert slash_tier_from_raid_level("RAID_LEVEL_3_SHADOW") == "3"
+    assert slash_tier_from_raid_level("RAID_LEVEL_5") == "5"
+    assert slash_tier_from_raid_level("RAID_LEVEL_5_SHADOW") == "5"
+    assert slash_tier_from_raid_level("RAID_LEVEL_ULTRA_BEAST") == "5"
+    assert slash_tier_from_raid_level("RAID_LEVEL_ELITE") == "5"
+    assert slash_tier_from_raid_level("RAID_LEVEL_MEGA") == "mega"
+    assert slash_tier_from_raid_level("RAID_LEVEL_MEGA_5") == "mega"
+    assert slash_tier_from_raid_level("RAID_LEVEL_6") is None
+
+
+def test_get_counter_for_unknown_weather_uses_no_weather(run):
+    dex = make_dex({})
+    dex.convert_name_to_id = lambda name, tier: "MEWTWO"
+    dex.get_counter_data = Mock(return_value=([], "https://fight.pokebattler.com/raids/mewtwo"))
+
+    embed = run(dex.get_counter_for(None, "Mewtwo", "5", "unknown"))
+
+    dex.get_counter_data.assert_called_once_with("MEWTWO", "RAID_LEVEL_5", "NO_WEATHER")
+    assert embed.fields[0].name == "Weather"
+    assert embed.fields[0].value == "❓"
+
+
+def test_matching_rotation_bosses_unique_name_infers_one_form():
+    dex = make_dex({
+        "Regirock": {"tier": "RAID_LEVEL_5", "pokemon": "REGIROCK"},
+    })
+    matches = dex.matching_rotation_bosses("regirock")
+    assert len(matches) == 1
+    assert matches[0].name == "Regirock"
+    assert matches[0].slash_tier == "5"
+    assert matches[0].shadow is False
+
+
+def test_matching_rotation_bosses_returns_shadow_and_regular():
+    dex = make_dex({
+        "Mewtwo": [
+            {"tier": "RAID_LEVEL_5", "pokemon": "MEWTWO"},
+            {"tier": "RAID_LEVEL_5_SHADOW", "pokemon": "MEWTWO_SHADOW_FORM"},
+        ],
+    })
+    matches = dex.matching_rotation_bosses("Mewtwo")
+    assert len(matches) == 2
+    assert matches[0].shadow is False
+    assert matches[1].shadow is True
+    assert matches[0].slash_tier == "5"
+    assert matches[1].slash_tier == "5"
+
+    shadow_only = dex.matching_rotation_bosses("shadow mewtwo")
+    assert len(shadow_only) == 1
+    assert shadow_only[0].shadow is True
+
+
+def test_matching_rotation_bosses_elite_is_tier_five_and_mega_legendary_is_mega():
+    dex = make_dex({
+        "Enamorus": {"tier": "RAID_LEVEL_ELITE", "pokemon": "ENAMORUS"},
+        "Rayquaza": {"tier": "RAID_LEVEL_MEGA_5", "pokemon": "RAYQUAZA_MEGA"},
+    })
+    elite = dex.matching_rotation_bosses("Enamorus")
+    mega_legendary = dex.matching_rotation_bosses("Rayquaza")
+    assert len(elite) == 1
+    assert elite[0].slash_tier == "5"
+    assert elite[0].shadow is False
+    assert len(mega_legendary) == 1
+    assert mega_legendary[0].slash_tier == "mega"
+
+
+def test_matching_rotation_bosses_same_name_in_two_tiers():
+    dex = make_dex({
+        "Gengar": [
+            {"tier": "RAID_LEVEL_3", "pokemon": "GENGAR"},
+            {"tier": "RAID_LEVEL_MEGA", "pokemon": "GENGAR_MEGA"},
+        ],
+    })
+    matches = dex.matching_rotation_bosses("Gengar")
+    assert len(matches) == 2
+    assert matches[0].slash_tier == "3"
+    assert matches[1].slash_tier == "mega"
