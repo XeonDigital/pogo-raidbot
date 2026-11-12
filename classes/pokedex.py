@@ -230,41 +230,39 @@ class Pokedex():
         """Embed of cached bosses by tier. Empty tiers are omitted instead of hiding the whole list."""
         _, _, _, _, _, _, _, _, _, dmax_t1, dmax_t2, dmax_t3, dmax_t4, dmax_t5, dmax_t6 = self.get_all_bosses_sorted()
         embed = discord.Embed(title="Dynamax/Gigantamax")
-        if dmax_t1 or dmax_t2 or dmax_t3 or dmax_t4 or dmax_t5 or dmax_t6:
-            for name, bosses in(
-                ("Tier 1", dmax_t1),
-                ("Tier 2", dmax_t2),
-                ("Tier 3", dmax_t3),
-                ("Tier 4",dmax_t4),
-                ("Legendary (Tier 5)",dmax_t5),
-                ("Gigantamax (Tier 6)",dmax_t6)
-            ):
-                if bosses:
-                    embed.add_field(name=name, value="\n".join(sorted(bosses)), inline=False)
-            if not embed.fields:
-                embed.description = "No dynamax battles cached. Try `/refresh_raids`."
+        for name, bosses in(
+            ("Tier 1", dmax_t1),
+            ("Tier 2", dmax_t2),
+            ("Tier 3", dmax_t3),
+            ("Tier 4",dmax_t4),
+            ("Legendary (Tier 5)",dmax_t5),
+            ("Gigantamax (Tier 6)",dmax_t6)
+        ):
+            if bosses:
+                embed.add_field(name=name, value="\n".join(sorted(bosses)), inline=False)
+        if not embed.fields:
+            embed.description = "No dynamax battles cached. Try `/refresh_raids`."
         return embed
 
     def build_raid_bosses_embed(self):
         """Embed of cached bosses by tier. Empty tiers are omitted instead of hiding the whole list."""
         mega_legendary, mega, elite, tier5, tier3, tier1, sha_tier5, sha_tier3, sha_tier1, _, _, _, _, _, _ = self.get_all_bosses_sorted()
         embed = discord.Embed(title="Raid Bosses")
-        if mega_legendary or mega or elite or  tier5 or tier3 or tier1 or sha_tier5 or sha_tier3 or sha_tier1:
-            for name, bosses in (
-                ("Mega Legendary", mega_legendary),
-                ("Mega", mega),
-                ("Elite", elite),
-                ("Tier 5", tier5),
-                ("Tier 3", tier3),
-                ("Tier 1", tier1),
-                ("Shadow Tier 5", sha_tier5),
-                ("Shadow Tier 3", sha_tier3),
-                ("Shadow Tier 1", sha_tier1),
-            ):
-                if bosses:
-                    embed.add_field(name=name, value="\n".join(sorted(bosses)), inline=False)
-            if not embed.fields:
-                embed.description = "No raid battles cached. Try `/refresh_raids`."
+        for name, bosses in (
+            ("Mega Legendary", mega_legendary),
+            ("Mega", mega),
+            ("Elite", elite),
+            ("Tier 5", tier5),
+            ("Tier 3", tier3),
+            ("Tier 1", tier1),
+            ("Shadow Tier 5", sha_tier5),
+            ("Shadow Tier 3", sha_tier3),
+            ("Shadow Tier 1", sha_tier1),
+        ):
+            if bosses:
+                embed.add_field(name=name, value="\n".join(sorted(bosses)), inline=False)
+        if not embed.fields:
+            embed.description = "No raid battles cached. Try `/refresh_raids`."
         return embed
         
 
