@@ -226,68 +226,109 @@ class Pokedex():
         match = find_pokemon(normalize_shadow_pokemon_name_for_lookup(name), mega="mega" in tier.lower())
         return match["pokemon_id"]
     
-    def get_current_raids(self):
-        raids = self.raids or {}
-        tier1 = []
-        tier3 = []
-        tier5 = []
-        mega = []
-        sha_tier1 = []
-        sha_tier3 = []
-        sha_tier5 = []
-        max_tier1 = []
-        max_tier2 = []
-        max_tier3 = []
-        max_tier4 = []
-        max_tier5 = []
-        max_tier6 = []
-        for boss_name, raid_data in raids.items():
-            display = (boss_name or "").strip().title()
-            if not display:
-                continue
-            tier = (raid_data or {}).get("tier") or ""
-            if "SHADOW" not in raid_data.get("pokemon"):
-                match tier:
-                    case "RAID_LEVEL_1":
-                        tier1.append(display)
-                    case "RAID_LEVEL_3":
-                        tier3.append(display)
-                    case "RAID_LEVEL_5" | "RAID_LEVEL_ULTRA_BEAST":
-                        tier5.append(display)
-                    case "RAID_LEVEL_MEGA" | "RAID_LEVEL_ELITE":
-                        mega.append(display)
-                    case "RAID_LEVEL_1_MAX":
-                        max_tier1.append(display)
-                    case "RAID_LEVEL_2_MAX":
-                        max_tier2.append(display)
-                    case "RAID_LEVEL_3_MAX":
-                        max_tier3.append(display)
-                    case "RAID_LEVEL4_MAX":
-                        max_tier4.append(display)
-                    case "RAID_LEVEL5_MAX":
-                        max_tier5.append(display)
-                    case "RAID_LEVEL_6_MAX":
-                        max_tier6.append(display)
-            else:
-                match tier:
-                    case "RAID_LEVEL_1_SHADOW" | "RAID_LEVEL_1":
-                        sha_tier1.append(display)
-                    case "RAID_LEVEL_3_SHADOW" | "RAID_LEVEL_3":
-                        sha_tier3.append(display)
-                    case "RAID_LEVEL_5_SHADOW" | "RAID_LEVEL_5":
-                        sha_tier5.append(display)
+    def build_dynamax_bosses_embed(self):
+        """Embed of cached bosses by tier. Empty tiers are omitted instead of hiding the whole list."""
+        _, _, _, _, _, _, _, _, _, dmax_t1, dmax_t2, dmax_t3, dmax_t4, dmax_t5, dmax_t6 = self.get_all_bosses_sorted()
+        embed = discord.Embed(title="Dynamax/Gigantamax")
+        if dmax_t1 or dmax_t2 or dmax_t3 or dmax_t4 or dmax_t5 or dmax_t6:
+            for name, bosses in(
+                ("Tier 1", dmax_t1),
+                ("Tier 2", dmax_t2),
+                ("Tier 3", dmax_t3),
+                ("Tier 4",dmax_t4),
+                ("Legendary (Tier 5)",dmax_t5),
+                ("Gigantamax (Tier 6)",dmax_t6)
+            ):
+                if bosses:
+                    embed.add_field(name=name, value="\n".join(sorted(bosses)), inline=False)
+            if not embed.fields:
+                embed.description = "No dynamax battles cached. Try `/refresh_raids`."
+        return embed
 
-        tier1.sort()
-        tier3.sort()
-        tier5.sort()
-        mega.sort()
-        sha_tier1.sort()
-        sha_tier3.sort()
-        sha_tier5.sort()
-        max_tier1.sort()
-        max_tier2.sort()
-        max_tier3.sort()
-        max_tier4.sort()
-        max_tier5.sort()
-        max_tier6.sort()
-        return  tier1 ,tier3 ,tier5 ,mega ,sha_tier1 ,sha_tier3 ,sha_tier5 ,max_tier1 ,max_tier2 ,max_tier3 ,max_tier4 ,max_tier5 ,max_tier6
+    def build_raid_bosses_embed(self):
+        """Embed of cached bosses by tier. Empty tiers are omitted instead of hiding the whole list."""
+        mega_legendary, mega, elite, tier5, tier3, tier1, sha_tier5, sha_tier3, sha_tier1, _, _, _, _, _, _ = self.get_all_bosses_sorted()
+        embed = discord.Embed(title="Raid Bosses")
+        if mega_legendary or mega or elite or  tier5 or tier3 or tier1 or sha_tier5 or sha_tier3 or sha_tier1:
+            for name, bosses in (
+                ("Mega Legendary", mega_legendary),
+                ("Mega", mega),
+                ("Elite", elite),
+                ("Tier 5", tier5),
+                ("Tier 3", tier3),
+                ("Tier 1", tier1),
+                ("Shadow Tier 5", sha_tier5),
+                ("Shadow Tier 3", sha_tier3),
+                ("Shadow Tier 1", sha_tier1),
+            ):
+                if bosses:
+                    embed.add_field(name=name, value="\n".join(sorted(bosses)), inline=False)
+            if not embed.fields:
+                embed.description = "No raid battles cached. Try `/refresh_raids`."
+        return embed
+        
+
+    def build_all_bosses_embed(self):
+        """Embed of cached bosses by tier. Empty tiers are omitted instead of hiding the whole list."""
+        dynamax_embed = self.build_dynamax_bosses_embed()
+        raid_bosses_embed = self.build_raid_bosses_embed()
+        embed = discord.Embed(title="All Bosses")
+        for field in raid_bosses_embed.fields:
+            embed.add_field(name=field.name, value=field.value, inline=True)
+        for field in dynamax_embed.fields:
+            if field.name is not "Gigantamax (Tier 6)":
+                embed.add_field(name= "Dynamax " + field.name, value=field.value, inline=True)
+            else:
+                embed.add_field(name=field.name, value=field.value, inline=True)
+        return embed
+
+    def get_all_bosses_sorted(self):
+        """Sorted bosses by tiers and types"""
+        mega_legendary, mega, elite, tier5, tier3, tier1 = [], [], [], [], [], []
+        dmax_t1, dmax_t2, dmax_t3, dmax_t4, dmax_t5, dmax_t6 = [], [], [], [], [], []
+        sha_tier5, sha_tier3, sha_tier1 = [], [], []
+        for boss_name, raid_data in (self.raids or {}).items():
+            display = (boss_name or "").strip().title()
+            entries = raid_data if isinstance(raid_data, list) else [raid_data]
+            for data in entries:
+                if not boss_name:
+                    return
+                tier = data.get("tier") or ""
+                pokemon = data.get("pokemon") or ""
+                if "SHADOW" in pokemon and not display.lower().startswith("shadow "):
+                    display = f"Shadow {display}"
+                if "SHADOW" not in pokemon:
+                    match tier:
+                        case "RAID_LEVEL_1":
+                            tier1.append(display)
+                        case "RAID_LEVEL_3":
+                            tier3.append(display)
+                        case "RAID_LEVEL_5" | "RAID_LEVEL_ULTRA_BEAST":
+                            tier5.append(display)
+                        case "RAID_LEVEL_ELITE":
+                            elite.append(display)
+                        case "RAID_LEVEL_MEGA_5":
+                            mega_legendary.append(display)
+                        case "RAID_LEVEL_MEGA":
+                            mega.append(display)
+                        case "RAID_LEVEL_1_MAX":
+                            dmax_t1.append(display)
+                        case "RAID_LEVEL_2_MAX":
+                            dmax_t2.append(display)
+                        case "RAID_LEVEL_3_MAX":
+                            dmax_t3.append(display)
+                        case "RAID_LEVEL_4_MAX":
+                            dmax_t4.append(display)
+                        case "RAID_LEVEL_5_MAX":
+                            dmax_t5.append(display)
+                        case "RAID_LEVEL_6_MAX":
+                            dmax_t6.append(display)
+                else:
+                    match tier:
+                        case "RAID_LEVEL_1_SHADOW" | "RAID_LEVEL_1":
+                            sha_tier1.append(display)
+                        case "RAID_LEVEL_3_SHADOW" | "RAID_LEVEL_3":
+                            sha_tier3.append(display)
+                        case "RAID_LEVEL_5_SHADOW" | "RAID_LEVEL_5":
+                            sha_tier5.append(display)
+        return mega_legendary, mega, elite, tier5, tier3, tier1, sha_tier5, sha_tier3, sha_tier1, dmax_t1, dmax_t2, dmax_t3, dmax_t4, dmax_t5, dmax_t6
